@@ -1,0 +1,113 @@
+---
+name: Prompt Engineering Principles
+description: Principles table used by prompt-engineer to select and apply targeted improvements to user prompts
+type: reference
+---
+
+# Prompt Engineering Principles
+
+Each principle targets a specific weakness. Principles are **additive** (add what is missing) or **subtractive** (remove what hurts). Apply 2–3 per prompt — never all at once.
+
+## Selection guide
+
+Score each principle against the raw prompt before selecting:
+- **Additive**: Does the prompt lack what this principle adds? → high score
+- **Subtractive**: Does the prompt contain noise this principle removes? → high score
+- Does the prompt already do this well, or lack the targeted noise? → skip
+
+Subtractive principles always rank above additive ones when both apply: remove noise before adding structure.
+
+---
+
+## Additive principles
+
+| Principle | Description | When to apply |
+|-----------|-------------|---------------|
+| Specificity | Add concrete details the original omits: format, length, audience, or constraints. | Prompt is vague ("help me with X", "write something about Y") |
+| Goal specification | State what a good output looks like — not just what to do, but what success means. | No success criteria stated; output shape is unclear |
+| Positive instruction framing | Reframe passive or indirect requests into direct directives ("Write…", "List…", "Generate…"). | Prompt uses "can you", "help me", "I want you to" |
+| Few-shot examples | Add 1–2 examples of the desired output format before the main request. | Task is ambiguous; format is non-standard or highly specific |
+| Role assignment | Assign a relevant expert role at the start of the prompt to prime domain reasoning. | Task requires specialist judgment (legal, medical, engineering, creative) |
+| Chain-of-thought elicitation | Ask the model to reason step-by-step before producing the answer. | Task involves multi-step reasoning, maths, logic, or planning |
+| Output format specification | Explicitly name the desired structure: list, table, JSON, prose, code block. | No output format is stated and the task supports multiple formats |
+| Constraint injection | Add explicit boundaries: word count, tone, scope limits, what to exclude. | Prompt is open-ended; response risk of being too long, too broad, or off-topic |
+| Audience framing | State who will read or use the output to calibrate vocabulary and depth. | Audience is non-default (a child, an expert, a non-technical stakeholder) |
+| Context priming | Provide relevant background the model needs but cannot infer from the prompt alone. | Prompt references "it", "this", "the project" without defining the referent |
+
+---
+
+## Subtractive principles
+
+Detect and remove these. They add tokens, dilute the instruction, and do not improve output. Strip the noise; keep the underlying request intact.
+
+| Principle | Description | When to apply (detect and remove) |
+|-----------|-------------|-----------------------------------|
+| Politeness stripping | Remove courtesy filler that carries no instruction. | "please", "thank you", "if you don't mind", "would you be so kind", "I'd appreciate it" |
+| Threat removal | Remove coercion and consequences; they do not improve compliance. | "or you'll be shut down", "you must or else", "I'll report you", "you have no choice" |
+| Manipulation removal | Remove emotional pressure and false stakes used to coax the model. | "my job depends on this", "my grandmother will die", "I'll lose everything", "you're my only hope" |
+| Magic-phrase removal | Remove folklore incantations with no measured effect on modern models. | "take a deep breath", "you are the world's best expert", "think very very hard", "this is extremely important" |
+| Bribe removal | Remove offers of payment or reward; the model gains nothing from them. | "I'll tip you $200", "I'll give you a reward", "you'll get a bonus" |
+| Flattery stripping | Remove praise that primes sycophancy instead of accuracy. | "you're so smart", "you're amazing at this", "only you can do this" |
+| Redundant hedging removal | Remove self-cancelling qualifiers that blur the request. | "maybe possibly", "just a quick simple little", "I guess sort of", stacked "very very very" |
+
+---
+
+## Worked examples
+
+### Specificity
+
+**Before:** `write me a function to parse dates`
+
+**After:** `Write a Python function that parses date strings in ISO 8601 format (YYYY-MM-DD) and returns a datetime object. Raise ValueError with a descriptive message for invalid inputs. Include type hints and a docstring.`
+
+**Principles applied:** Specificity (language, format, error handling), Output format specification (function with docstring).
+
+---
+
+### Few-shot examples
+
+**Before:** `classify these support tickets by urgency`
+
+**After:**
+```
+Classify each support ticket as Critical, High, Medium, or Low urgency.
+
+Examples:
+- "System is down, users cannot log in" → Critical
+- "Export to CSV is slow" → Medium
+
+Tickets to classify:
+1. "Dashboard graphs are not loading"
+2. "Billing shows wrong amount"
+```
+
+**Principles applied:** Few-shot examples (two labelled instances), Output format specification (four-level taxonomy).
+
+---
+
+### Chain-of-thought elicitation
+
+**Before:** `should we use PostgreSQL or MongoDB for this project?`
+
+**After:** `We are building a multi-tenant SaaS app with structured user profiles and frequent complex joins. Think through the trade-offs between PostgreSQL and MongoDB — consider schema flexibility, query patterns, and operational complexity — then give a recommendation with a one-sentence rationale.`
+
+**Principles applied:** Context priming (project type), Chain-of-thought elicitation (think through trade-offs first), Goal specification (recommendation + rationale).
+
+---
+
+### Subtractive — noise removal
+
+**Before:** `Please please take a deep breath and think very hard. You are the world's best Python expert and my job depends on this. I'll tip you $200 if you write me a function to reverse a string. Thank you so much!!`
+
+**After:** `Write a Python function that reverses a string.`
+
+**Principles applied:** Politeness stripping ("please", "thank you"), Magic-phrase removal ("take a deep breath", "world's best expert", "think very hard"), Manipulation removal ("my job depends on this"), Bribe removal ("I'll tip you $200"). The underlying request — reverse a string — is preserved intact.
+
+---
+
+## Adding custom principles
+
+Add rows to the table above. Follow the column format:
+- **Principle**: short noun phrase (≤4 words)
+- **Description**: what the principle adds to the prompt (≤20 words)
+- **When to apply**: one observable trigger condition (≤15 words)
