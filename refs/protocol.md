@@ -12,13 +12,18 @@ Emit `Step X/7 — <title>` at the start of each step, unconditionally.
 
 **Always run this first, before anything else.**
 
-The persistent run mode lives in the **project-local pref file**: `$CLAUDE_PROJECT_DIR/.claude/wdym/pref.json` (created by `--init`, see below). This is local to the directory the user is working in — never read or write a global `~/.claude` copy. Throughout this protocol, "the pref file" means this project-local path.
+The persistent run mode lives in a **pref file** that `--init` installs at one of two scopes. Resolve "the pref file" by checking, in order:
 
-First, check the raw prompt for the **`--init`** directive (anywhere in the text): if present, run `refs/init.md` end-to-end to bootstrap the skill into the current directory, then **terminate** — do not continue to Step 1, do not enhance any prompt.
+1. **Local:** `$CLAUDE_PROJECT_DIR/.claude/wdym/pref.json` (or `./.claude/wdym/pref.json`).
+2. **Global:** `~/.claude/wdym/pref.json`.
 
-Otherwise, read the pref file and parse its `mode` key into `run_mode` (`comprehensive` · `flash`). This persistent run mode is distinct from the principle-pool `mode` (`global` / `typed:…`) resolved in Step 2.
+Use the first that exists — a local pref overrides a global one. Throughout this protocol, "the pref file" means whichever was resolved; writes (set-mode, flag switches) target that same resolved path.
 
-- If the pref file is missing or unparseable → default `run_mode = comprehensive` (do **not** create it here; it is created only by `--init`, which keeps the install scoped and explicit).
+First, check the raw prompt for the **`--init`** directive (anywhere in the text): if present, run `refs/init.md` end-to-end to bootstrap the skill (it asks the user for local vs. global scope), then **terminate** — do not continue to Step 1, do not enhance any prompt.
+
+Otherwise, read the resolved pref file and parse its `mode` key into `run_mode` (`comprehensive` · `flash`). This persistent run mode is distinct from the principle-pool `mode` (`global` / `typed:…`) resolved in Step 2.
+
+- If no pref file exists at either scope, or it is unparseable → default `run_mode = comprehensive` (do **not** create it here; it is created only by `--init`, which keeps the install scoped and explicit).
 
 Then check the raw prompt for mode directives (anywhere in the text):
 
@@ -55,12 +60,22 @@ It first checks for a `<prompt-detect source="hook">` block (the deterministic p
 
 ## Step 3 — Load principles `[model: haiku]`
 
-Read `refs/principles.md`. Always parse the **Global base** — additive and subtractive tables — into `(principle, type, description, when_to_apply)` tuples.
+Principles live in `refs/principles/`, split by type so each run reads only what it needs:
 
-- If `mode = global` → `principles_list` is the global base only.
-- If `mode = typed:<prompt_type>` → also parse the matching **Type-specific** section for `<prompt_type>` and append its rows (tagged with their `type` column) to `principles_list`.
+- `principles-global.md` — global base (additive + subtractive). **Always needed.**
+- `principles-code.md` · `principles-question.md` · `principles-text-gen.md` — one file per `prompt_type`.
+- `examples.md` — documentation only; **never read at runtime**.
 
-Load **only** the one matching type section, never all of them. Cache `principles_list` for the session.
+**Session cache — read each file at most once per session.** Maintain a session-scoped `loaded` set of file keys already in context. Before any `Read`, check `loaded`; only read a file whose key is absent, then add the key. This means the global base is read on the **first** substantive prompt of the session and reused thereafter, and each type file is read **lazily** — only the first time that `prompt_type` actually appears.
+
+Assemble `principles_list` for **this** run from the cached parses:
+
+1. **Global base** — if `global` not in `loaded`, read `refs/principles/principles-global.md`, parse the additive and subtractive tables into `(principle, type, description, when_to_apply)` tuples, and mark `global` loaded. Start `principles_list` from the cached global base.
+2. **Type section** — only if `mode = typed:<prompt_type>`: if `<prompt_type>` not in `loaded`, read `refs/principles/principles-<prompt_type>.md`, parse its rows (tagged with their `type` column), and mark `<prompt_type>` loaded. Append the cached rows for `<prompt_type>` to `principles_list`.
+
+If `mode = global`, `principles_list` is the global base only — no type file is read.
+
+**Why per-type, not once-globally:** a session's `prompt_type` changes between prompts (a code edit, then a conceptual question). Caching one fixed list would serve the wrong pool after a switch. Caching *per file* keeps every run correct — it rebuilds `principles_list = global base ∪ rows for this run's type` from cache — while still reading each file only once. A code→question→code session reads `global` once, `code` once, `question` once; the second code prompt reads nothing.
 
 ## Step 4 — Select top 2–3 principles `[model: sonnet]`
 

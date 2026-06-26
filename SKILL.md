@@ -11,11 +11,16 @@ description: >
   mode it rewrites and runs immediately. Supports a --global flag that forces the
   universal base and skips detection, and --comprehensive / --flash flags (or
   the /wdym --set-mode command) that permanently switch the stored mode. On
-  terminate in comprehensive mode, hints the user toward flash mode.
+  terminate in comprehensive mode, hints the user toward flash mode. A --init
+  command installs the pref file and wires the UserPromptSubmit hook, asking
+  whether to scope it locally (this directory) or globally (~/.claude).
 model: claude-sonnet-4-6
 allowed_tools:
   - AskUserQuestion
   - Read
+  - Write
+  - Edit
+  - Bash
 ---
 
 ## Usage
@@ -39,16 +44,18 @@ A `UserPromptSubmit` hook (`hooks/prompt-detect.py`) deterministically pre-score
 
 ## Install (`--init`)
 
-Run `/wdym --init` in any directory to install the skill there. It is **scoped to that local directory only** — it never touches global `~/.claude` settings. Init:
+Run `/wdym --init` to install the skill. It asks (via `AskUserQuestion`) which **scope** to install at:
 
-1. Writes the local pref file at `.claude/wdym/pref.json` (default `{"mode": "comprehensive"}`).
-2. Wires the `UserPromptSubmit` hook into `.claude/settings.local.json` with an absolute path to `hooks/prompt-detect.py`, so the skill fires automatically on every prompt.
+- **Local (this directory)** — writes `.claude/wdym/pref.json` and wires the hook into `.claude/settings.local.json`. Applies only in this directory.
+- **Global (all projects)** — writes `~/.claude/wdym/pref.json` and wires the hook into `~/.claude/settings.json`. Applies to every project for this user.
+
+You can skip the prompt with `/wdym --init --global` or `/wdym --init --local`. Either way init writes the chosen pref file (default `{"mode": "comprehensive"}`) and a `UserPromptSubmit` hook with an absolute path to `hooks/prompt-detect.py`, so the skill fires automatically on every prompt.
 
 Init is idempotent: it never overwrites an existing `pref.json` and never duplicates the hook. See `refs/init.md` for the full bootstrap protocol.
 
 ## Run modes
 
-The skill **always scans the local pref file first** (Step 0) to read the persistent run mode. The pref file is `$CLAUDE_PROJECT_DIR/.claude/wdym/pref.json` — local to the directory the user works in. The mode controls the approval gates, not which principles are loaded.
+The skill **scans the pref file first** (Step 0) to read the persistent run mode. It resolves the pref file by checking the **local** path (`$CLAUDE_PROJECT_DIR/.claude/wdym/pref.json`) first, then the **global** path (`~/.claude/wdym/pref.json`) — a local pref overrides a global one. The mode controls the approval gates, not which principles are loaded.
 
 | Run mode | Stored as | Behaviour |
 |----------|-----------|-----------|
@@ -68,16 +75,16 @@ When a comprehensive-mode session ends in **terminate** (Reject at Step 6 or Ter
 
 | Name | Format | Source |
 |------|--------|--------|
-| run_mode | `comprehensive` / `flash` | Local pref file `.claude/wdym/pref.json` `mode` key (scanned first, Step 0) |
+| run_mode | `comprehensive` / `flash` | Pref file `mode` key — local `.claude/wdym/pref.json`, else global `~/.claude/wdym/pref.json` (scanned first, Step 0) |
 | raw_prompt | Plain text string | `UserPromptSubmit` hook payload |
 | detect | Markdown protocol | `refs/detect.md` |
-| principles | Markdown tables (global base + type sections) | `refs/principles.md` |
+| principles | Markdown tables, split by type | `refs/principles/` (global base + per-type files) |
 
 ## Outputs
 
 | Name | Format | Destination |
 |------|--------|-------------|
-| run_mode | `comprehensive` / `flash` | Read from `.claude/wdym/pref.json` at Step 0; gates Steps 6–7 |
+| run_mode | `comprehensive` / `flash` | Read from the local or global `wdym/pref.json` at Step 0; gates Steps 6–7 |
 | prompt_type | Enum string | Cached; routes principle loading |
 | mode | `global` / `typed:<prompt_type>` | Cached; selects the principle pool |
 | enhanced_prompt | Plain text string | Presented inline for user approval |
@@ -91,14 +98,20 @@ Follow `refs/protocol.md` end-to-end. A preliminary Step 0 scans `pref.json` for
 
 ## Caching
 
-Load `refs/principles.md` once at Step 3. Cache `prompt_type`, `mode`, and `principles_list` for the session. Place the global base table in the cached prefix of Anthropic API calls — it is loaded on every run. Place the variable `raw_prompt` (and the per-run type section) after the cache breakpoint. Mark the prefix with `cache_control: {"type": "ephemeral"}`.
+Principles are loaded lazily and cached **per file** across the session, so each prompt reads only what isn't already in context. Two layers:
+
+1. **Split by type.** Principles live in `refs/principles/`: `principles-global.md` (always loaded) plus one file per `prompt_type` (`principles-code.md`, `principles-question.md`, `principles-text-gen.md`). A run reads the global base + at most one type file — never the whole pool. Worked examples and the authoring guide live in `examples.md`, which is **never read at runtime**.
+
+2. **Read each file at most once per session.** Step 3 keeps a session `loaded` set and skips the `Read` for any file already in context. The global base is read on the first substantive prompt and reused; each type file is read lazily, only the first time that type appears. `principles_list` is **rebuilt per run** from the cached parses (`global base ∪ rows for this run's type`) — not frozen — so a session whose `prompt_type` switches (code → question → code) stays correct while still reading each file only once.
+
+Claude Code applies ephemeral prompt-caching to the stable conversation prefix automatically; keeping the principle files unchanged within a session lets those reads bill at cache rates. The skill does not set `cache_control` itself — it has no control over the API call; it minimises tokens by *not re-reading* files instead.
 
 ## References
 
-- `refs/init.md` — Local bootstrap protocol for `--init`: installs the pref file and wires the `UserPromptSubmit` hook, scoped to the current directory only
-- `pref.json` — Bundled default template (`{"mode": "comprehensive"}`); init copies it to the local `.claude/wdym/pref.json` that is scanned first on every run
+- `refs/init.md` — Bootstrap protocol for `--init`: asks local vs. global scope, installs the pref file and wires the `UserPromptSubmit` hook accordingly
+- `pref.json` — Bundled default template (`{"mode": "comprehensive"}`); init copies it to the local `.claude/wdym/pref.json` or global `~/.claude/wdym/pref.json` that is scanned first on every run
 - `refs/detect.md` — Prompt detection protocol: hook consumption, `--global` handling, type taxonomy, resolution algorithm
 - `refs/categories.json` — Single source of truth for the type taxonomy and signal cues; shared by the hook and detect.md
-- `hooks/prompt-detect.py` — Deterministic `UserPromptSubmit` pre-scorer; wired into the local `.claude/settings.local.json` by `--init`
+- `hooks/prompt-detect.py` — Deterministic `UserPromptSubmit` pre-scorer; wired by `--init` into `.claude/settings.local.json` (local) or `~/.claude/settings.json` (global)
 - `refs/protocol.md` — Execution protocol (Step 0 preference scan + seven numbered steps) the skill follows end-to-end
-- `refs/principles.md` — Global base + type-specific principle tables; user-editable to add custom principles
+- `refs/principles/` — Principle tables split by type: `principles-global.md` (always loaded) + `principles-code.md` / `principles-question.md` / `principles-text-gen.md` (one per run, lazily). `examples.md` holds worked examples and the authoring guide (documentation only, never read at runtime). User-editable to add custom principles.
