@@ -1,6 +1,6 @@
 ---
 name: Prompt Detection Protocol
-description: Routes a raw prompt into a prompt_type and resolves global vs typed mode for prompt-engineer
+description: Routes a raw prompt into a prompt_type and resolves global vs typed mode for wdym
 type: reference
 ---
 
@@ -30,6 +30,10 @@ context. **When that block is present, trust it instead of re-scoring:**
 - `verdict: ambiguous` → the scorer found no clear winner. Adjudicate **only among
   its `candidates`** (or all types if `candidates: none`) using the manual algorithm
   below. The scorer's `scores:` line is your prior.
+- `verdict: degraded` → the hook ran but its config (`categories.json`) is unusable,
+  so it produced no scores. Honour `global_flag: true` (→ `mode = global`); otherwise
+  run the full manual protocol below from scratch. The self-check (protocol Step 0.5)
+  is responsible for healing the config — detection still proceeds normally here.
 
 If no hook block is present (hook disabled or failed), run the full manual protocol
 below from scratch. The hook is deterministic and free; the manual path is the

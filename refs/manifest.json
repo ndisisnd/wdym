@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "description": "Known-good manifest for the wdym skill. The self-check (protocol Step 0.5) and the hook read this to know what a healthy install looks like and what to restore from. Repairs are idempotent and non-destructive: a MISSING file with a restore_from source is recreated; a PRESENT-but-invalid file that may hold user edits is escalated, never clobbered.",
+  "required_files": [
+    {
+      "path": "hooks/prompt-detect.py",
+      "role": "Deterministic UserPromptSubmit pre-scorer + hook-side telemetry writer",
+      "required": true,
+      "restore_from": null,
+      "on_missing": "escalate"
+    },
+    {
+      "path": "hooks/telemetry-stats.py",
+      "role": "Telemetry aggregator invoked by /wdym --stats",
+      "required": true,
+      "restore_from": null,
+      "on_missing": "escalate"
+    },
+    {
+      "path": "refs/categories.json",
+      "role": "Type taxonomy + signal cues (user-editable)",
+      "required": true,
+      "restore_from": "refs/categories.default.json",
+      "on_missing": "restore",
+      "on_invalid": "escalate"
+    },
+    {
+      "path": "refs/categories.default.json",
+      "role": "Pristine restore source for categories.json — never edit",
+      "required": true,
+      "restore_from": null,
+      "on_missing": "escalate"
+    },
+    {
+      "path": "refs/principles/principles-global.md",
+      "role": "Global base principles (always loaded)",
+      "required": true,
+      "restore_from": null,
+      "on_missing": "escalate"
+    },
+    {
+      "path": "refs/principles/principles-code.md",
+      "role": "Type principles: code",
+      "required": false,
+      "restore_from": null,
+      "on_missing": "fallback_global"
+    },
+    {
+      "path": "refs/principles/principles-question.md",
+      "role": "Type principles: question",
+      "required": false,
+      "restore_from": null,
+      "on_missing": "fallback_global"
+    },
+    {
+      "path": "refs/principles/principles-text-gen.md",
+      "role": "Type principles: text-gen",
+      "required": false,
+      "restore_from": null,
+      "on_missing": "fallback_global"
+    }
+  ],
+  "data_files": [
+    {
+      "path_local": "$CLAUDE_PROJECT_DIR/.claude/wdym/telemetry.jsonl",
+      "path_global": "~/.claude/wdym/telemetry.jsonl",
+      "role": "Append-only hybrid telemetry stream (src:hook + src:skill), read by /wdym --stats",
+      "lifecycle": "created lazily on first write; never by --init",
+      "heal_policy": "excluded — best-effort data, not install state. Absence is normal (no runs yet); never restore, never escalate. A corrupt line is tolerated by the reader, not repaired by the self-check."
+    }
+  ],
+  "pref_schema": {
+    "path_local": "$CLAUDE_PROJECT_DIR/.claude/wdym/pref.json",
+    "path_global": "~/.claude/wdym/pref.json",
+    "required_keys": ["mode"],
+    "enums": { "mode": ["comprehensive", "flash"] },
+    "default": { "mode": "comprehensive" },
+    "on_missing": "noop_default_comprehensive",
+    "on_invalid": "restore_default"
+  },
+  "categories_schema": {
+    "required_keys": ["version", "threshold", "categories"],
+    "category_required_keys": ["id", "keywords"],
+    "min_categories": 1
+  },
+  "hook": {
+    "event": "UserPromptSubmit",
+    "settings_key": "hooks.UserPromptSubmit",
+    "command_template": "python3 \"<SKILL_DIR>/hooks/prompt-detect.py\"",
+    "match_substring": "prompt-detect.py",
+    "on_path_stale": "rewire",
+    "on_unwired": "escalate_init",
+    "on_settings_unparseable": "escalate"
+  }
+}

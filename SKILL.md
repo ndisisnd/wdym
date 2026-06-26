@@ -1,5 +1,5 @@
 ---
-name: prompt-engineer
+name: wdym
 description: >
   Fires on UserPromptSubmit. Skips slash commands, ≤5-word prompts, and
   conversational follow-ups. Always scans pref.json first for the persistent run
@@ -13,7 +13,14 @@ description: >
   the /wdym --set-mode command) that permanently switch the stored mode. On
   terminate in comprehensive mode, hints the user toward flash mode. A --init
   command installs the pref file and wires the UserPromptSubmit hook, asking
-  whether to scope it locally (this directory) or globally (~/.claude).
+  whether to scope it locally (this directory) or globally (~/.claude). A
+  once-per-session self-check (Step 0.5) verifies its own install against a
+  known-good manifest and self-heals — restoring a corrupt pref or a missing
+  categories.json, re-wiring a stale hook path — so the skill recovers instead
+  of silently running degraded. Records local-only usage telemetry to
+  wdym/telemetry.jsonl (prompts seen, types transformed, pure global runs),
+  readable via the /wdym --status command, which renders a styled,
+  RTK-gain-style report (totals, transform-rate meter, ranked by-type table).
 model: claude-sonnet-4-6
 allowed_tools:
   - AskUserQuestion
@@ -94,7 +101,7 @@ When a comprehensive-mode session ends in **terminate** (Reject at Step 6 or Ter
 
 ## Step-by-step protocol
 
-Follow `refs/protocol.md` end-to-end. A preliminary Step 0 scans `pref.json` for the run mode and applies any `--flash` / `--comprehensive` switch. The seven numbered steps are: classify prompt, detect prompt type, load principles, select top 2–3 principles, rewrite prompt, present for approval, run or terminate. Emit `Step X/7 — <title>` at the start of each numbered step, unconditionally. In flash mode, Steps 6 and 7 collapse to an immediate run with no gates.
+Follow `refs/protocol.md` end-to-end. A preliminary Step 0 scans `pref.json` for the run mode and applies any `--flash` / `--comprehensive` switch (and handles `--init` and `--status`). A once-per-session Step 0.5 self-check then verifies the install against `refs/manifest.json` and heals any wound it safely can. The eight numbered steps are: classify prompt, detect prompt type, load principles, select top 2–3 principles, rewrite prompt, present for approval, run or terminate, record telemetry. Emit `Step X/8 — <title>` at the start of each numbered step, unconditionally. In flash mode, Steps 6 and 7 collapse to an immediate run with no gates; Step 8 still records the run.
 
 ## Caching
 
@@ -106,12 +113,70 @@ Principles are loaded lazily and cached **per file** across the session, so each
 
 Claude Code applies ephemeral prompt-caching to the stable conversation prefix automatically; keeping the principle files unchanged within a session lets those reads bill at cache rates. The skill does not set `cache_control` itself — it has no control over the API call; it minimises tokens by *not re-reading* files instead.
 
+## Self-healing
+
+The skill already **degrades gracefully** — a dead hook falls back to LLM detection, a missing pref defaults to comprehensive, missing principle files fall back to the global base. Degradation keeps the skill alive through a wound but never closes it: it would run degraded forever, silently. The **Step 0.5 self-check** adds the missing half — `sense → repair → escalate` — once per session, on the first substantive prompt:
+
+| Wound | Sensed by | Action |
+|-------|-----------|--------|
+| Hook ran but `categories.json` unusable | Hook emits `verdict: degraded` (vs. silent absence) | Heal `categories.json` (restore if missing; escalate if present-but-invalid) |
+| Hook path stale (skill dir moved) | No `<prompt-detect>` block **+** settings entry whose script path is gone | Re-wire the hook command to the current absolute `SKILL_DIR` |
+| Hook not installed | No block **+** no matching settings entry | Escalate → hint to run `/wdym --init` |
+| `pref.json` corrupt | Step 0 parse fails | Restore default `{"mode":"comprehensive"}` |
+| `categories.json` missing | File absent | Restore from `refs/categories.default.json` |
+| Principle file missing | File absent | Fall back to global base for that type (escalate if `principles-global.md`) |
+| `telemetry-stats.py` missing | File absent | Escalate → `/wdym --stats` can't aggregate |
+
+Two invariants govern every repair (defined in `refs/manifest.json`): **missing files with a restore source are recreated** (non-destructive); **present-but-invalid files that may hold user edits are escalated, never clobbered**. All repairs are idempotent, and the check stays silent when everything is healthy, so the happy path pays nothing.
+
+The telemetry **data file** (`telemetry.jsonl`) is deliberately **outside** this layer — `manifest.json` lists it under `data_files` with a no-heal policy. It is append-only, best-effort, and created lazily, so its absence is normal (no runs yet), never a wound; a malformed line is tolerated by the `--stats` reader, not repaired. Self-check heals the telemetry *code* (the two hook scripts) but never touches the telemetry *stream* — preserving the rule that telemetry can never block or alter a run.
+
+## Telemetry
+
+The skill keeps a **local, append-only** usage log at `<wdym_dir>/telemetry.jsonl` — the same directory as the active `pref.json` (local `.claude/wdym/`, else global `~/.claude/wdym/`). Nothing leaves the machine. It is a **hybrid** of two streams sharing the file, tagged by `src`:
+
+| `src` | Written by | One line per | Records |
+|-------|------------|--------------|---------|
+| `hook` | `hooks/prompt-detect.py` (deterministic, zero-token) | **every** prompt submission | provisional `verdict`, `type`, and a `passthrough` flag (slash / ≤5 words / follow-up) |
+| `skill` | Protocol **Step 8** | every **substantive run** the skill transformed | final LLM-resolved `type`, `mode`, `run_mode`, and `outcome` (`run` / `terminated`) |
+
+The hook line is the deterministic ground truth for *how many prompts were seen*; the skill line is the accurate record of *what was actually transformed* — including how `ambiguous` prompts finally resolved, which the hook can't know. The file is created lazily on first write (never by `--init`), and both writers fail silent so telemetry can never block or alter a prompt.
+
+Read it back with **`/wdym --status`** (alias `--stats`), which runs `hooks/telemetry-stats.py` and renders a styled report — totals, a transform-rate meter, and a ranked "By Type" table with impact bars:
+
+```
+ wdym · prompt telemetry              (local scope)
+══════════════════════════════════════════════════
+
+ Total prompts        128
+ Substantive           96
+ Transformed           91
+ Passthrough           32
+ Pure global runs       8   exceptions
+ Transform rate    █████████████████████░   95%
+
+ By Type
+──────────────────────────────────────────────────
+  #  Type       Count   Share  Impact
+  1  code          41   45.1%  ███████████
+  2  question      30   33.0%  ████████░░░
+  3  text-gen      12   13.2%  ███░░░░░░░░
+  4  global         8    8.8%  ██░░░░░░░░░
+
+ Outcomes          run 79 · terminated 12
+```
+
+The reader emits full ANSI color to a real terminal and degrades to clean monochrome Unicode when its output is captured (so no escape-code noise leaks into the transcript). `Pure global runs` / the `global` type row count `mode = global` rows — the "exception" metric, where detection found no clear type and fell back to the universal base.
+
 ## References
 
 - `refs/init.md` — Bootstrap protocol for `--init`: asks local vs. global scope, installs the pref file and wires the `UserPromptSubmit` hook accordingly
 - `pref.json` — Bundled default template (`{"mode": "comprehensive"}`); init copies it to the local `.claude/wdym/pref.json` or global `~/.claude/wdym/pref.json` that is scanned first on every run
 - `refs/detect.md` — Prompt detection protocol: hook consumption, `--global` handling, type taxonomy, resolution algorithm
 - `refs/categories.json` — Single source of truth for the type taxonomy and signal cues; shared by the hook and detect.md
-- `hooks/prompt-detect.py` — Deterministic `UserPromptSubmit` pre-scorer; wired by `--init` into `.claude/settings.local.json` (local) or `~/.claude/settings.json` (global)
-- `refs/protocol.md` — Execution protocol (Step 0 preference scan + seven numbered steps) the skill follows end-to-end
+- `hooks/prompt-detect.py` — Deterministic `UserPromptSubmit` pre-scorer; wired by `--init` into `.claude/settings.local.json` (local) or `~/.claude/settings.json` (global). Also appends the `src:"hook"` telemetry line per submission
+- `hooks/telemetry-stats.py` — Dependency-free renderer behind `/wdym --status` (alias `--stats`); reads the active-scope `telemetry.jsonl` and prints the styled report (color on a TTY, monochrome when captured)
+- `refs/protocol.md` — Execution protocol (Step 0 preference scan + Step 0.5 self-check + eight numbered steps, ending in Step 8 telemetry) the skill follows end-to-end
+- `refs/manifest.json` — Known-good install definition read by the Step 0.5 self-check: required files, pref/categories schemas, the hook command template, and per-file repair policy (restore-when-missing vs. escalate-when-invalid)
+- `refs/categories.default.json` — Pristine restore source for `categories.json` (never edited); the self-check recreates `categories.json` from it when missing
 - `refs/principles/` — Principle tables split by type: `principles-global.md` (always loaded) + `principles-code.md` / `principles-question.md` / `principles-text-gen.md` (one per run, lazily). `examples.md` holds worked examples and the authoring guide (documentation only, never read at runtime). User-editable to add custom principles.

@@ -1,19 +1,82 @@
 #!/usr/bin/env python3
-"""UserPromptSubmit pre-scorer for the prompt-engineer (wdym) skill.
+"""UserPromptSubmit pre-scorer for the wdym skill.
 
 Deterministic keyword/regex classifier. Reads the submitted prompt, scores it
 against refs/categories.json, and injects a <prompt-detect> block as additional
 context. The skill's detect protocol (refs/detect.md, Step 2) consumes this:
 trust the verdict when `clear`, adjudicate among `candidates` when `ambiguous`.
 
-Contract: never block or mutate the prompt. Any failure exits 0 with no output,
-so a broken scorer degrades to pure-LLM detection rather than dropping the prompt.
+Contract: never block or mutate the prompt. A broken scorer never drops the
+prompt. Where it can still identify the prompt (stdin parsed, prompt non-empty)
+but its config is unusable, it emits a self-reporting `verdict: degraded` block
+instead of exiting silently — so the skill's self-check (protocol Step 0.5) can
+tell "hook ran but config is broken" apart from "hook never ran" and heal the
+config. Only failures that leave nothing to report (bad stdin, empty prompt)
+exit 0 with no output.
 """
 
 import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
+
+
+# --- Telemetry (hybrid stream A: deterministic per-submission log) -----------
+#
+# Appends one {"src":"hook", ...} line per submission to the resolved
+# wdym/telemetry.jsonl, colocated with pref.json (local scope overrides global).
+# Best-effort and isolated: any failure is swallowed so telemetry can never
+# block or drop a prompt. The skill's Step 8 writes the matching {"src":"skill"}
+# outcome line; refs/protocol.md `--stats` aggregates both streams.
+
+FOLLOWUP_PREFIXES = (
+    "thanks", "thank you", "ok", "got it", "sounds good", "sure", "and", "also",
+)
+FOLLOWUP_EXACT = ("can you elaborate", "what about", "go on", "continue")
+
+
+def is_passthrough(raw: str) -> bool:
+    """Replicate protocol Step 1's deterministic passthrough conditions so the
+    hook can flag prompts the skill will skip (slash / <=5 words / follow-up)."""
+    s = raw.strip()
+    if s.startswith("/"):
+        return True
+    if len(s.split()) <= 5:
+        return True
+    low = s.lower().rstrip(".!?").strip()
+    if low in FOLLOWUP_EXACT:
+        return True
+    if any(low == p or low.startswith(p + " ") for p in FOLLOWUP_PREFIXES):
+        return True
+    return False
+
+
+def telemetry_path():
+    """Resolve wdym/telemetry.jsonl at the active install scope: local
+    .claude/wdym/ overrides global ~/.claude/wdym/. Returns None if neither
+    install dir exists (the dir is created by --init, never by the hook)."""
+    candidates = []
+    proj = os.environ.get("CLAUDE_PROJECT_DIR")
+    if proj:
+        candidates.append(os.path.join(proj, ".claude", "wdym"))
+    candidates.append(os.path.join(os.getcwd(), ".claude", "wdym"))
+    candidates.append(os.path.expanduser("~/.claude/wdym"))
+    for d in candidates:
+        if os.path.isdir(d):
+            return os.path.join(d, "telemetry.jsonl")
+    return None
+
+
+def log_telemetry(record: dict) -> None:
+    try:
+        path = telemetry_path()
+        if not path:
+            return
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, separators=(",", ":")) + "\n")
+    except Exception:
+        pass
 
 
 def cue_match(term: str, text: str) -> bool:
@@ -45,6 +108,33 @@ def is_forced(cat: dict, text: str) -> bool:
     return any(re.search(pat, text) for pat in cat.get("force_regex", []))
 
 
+def emit_degraded(reason: str, global_flag: bool, raw: str = "") -> int:
+    """Hook ran but its config is unusable. Report it so the skill can heal,
+    while still honouring --global and never blocking the prompt."""
+    log_telemetry({
+        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "src": "hook",
+        "verdict": "degraded",
+        "type": "none",
+        "passthrough": is_passthrough(raw),
+    })
+    lines = [
+        '<prompt-detect source="hook" deterministic="true" verdict="degraded">',
+        f"reason: {reason}",
+        f"global_flag: {str(global_flag).lower()}",
+        "note: deterministic scorer disabled — self-check should heal "
+        "refs/categories.json; adjudicate this prompt per refs/detect.md",
+        "</prompt-detect>",
+    ]
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "UserPromptSubmit",
+            "additionalContext": "\n".join(lines),
+        }
+    }))
+    return 0
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -63,10 +153,14 @@ def main() -> int:
     try:
         with open(cfg_path, "r", encoding="utf-8") as fh:
             cfg = json.load(fh)
-    except Exception:
-        return 0
+    except FileNotFoundError:
+        return emit_degraded("categories.json missing", global_flag, raw)
+    except Exception as err:
+        return emit_degraded(f"categories.json unparseable ({type(err).__name__})", global_flag, raw)
 
     cats = cfg.get("categories", [])
+    if not isinstance(cats, list) or not cats:
+        return emit_degraded("categories.json has no categories", global_flag, raw)
     thr = cfg.get("threshold", {})
     min_score = thr.get("min_score", 2)
     min_lead = thr.get("min_lead", 1)
@@ -110,6 +204,14 @@ def main() -> int:
         lines.append("note: no clear winner — adjudicate per refs/detect.md")
     lines.append("</prompt-detect>")
     context = "\n".join(lines)
+
+    log_telemetry({
+        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "src": "hook",
+        "verdict": verdict,
+        "type": prompt_type,
+        "passthrough": is_passthrough(raw),
+    })
 
     print(json.dumps({
         "hookSpecificOutput": {

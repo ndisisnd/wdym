@@ -1,6 +1,6 @@
 ---
 name: Init Protocol
-description: One-time bootstrap for the prompt-engineer (wdym) skill — installs pref.json and wires the UserPromptSubmit hook, at local (this directory) or global (~/.claude) scope
+description: One-time bootstrap for the wdym skill — installs pref.json and wires the UserPromptSubmit hook, at local (this directory) or global (~/.claude) scope
 type: reference
 ---
 

@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "description": "Single source of truth for prompt-type detection. Consumed by hooks/prompt-detect.py (deterministic pre-scorer) and referenced by refs/detect.md (LLM adjudication). Categories are mutually exclusive; cues are curated to minimise cross-category overlap.",
+  "threshold": { "min_score": 2, "min_lead": 1 },
+  "categories": [
+    {
+      "id": "code",
+      "label": "Code generation & software engineering",
+      "intent": "Produce, modify, debug, or explain software and code.",
+      "principles_section": "Coding",
+      "keywords": [
+        "function", "def ", "class", "method", "variable", "compile", "debug",
+        "bug", "stack trace", "traceback", "exception", "refactor", "implement",
+        "endpoint", "api", "backend", "frontend", "database", "query", "sql",
+        "schema", "algorithm", "unit test", "async", "await", "import", "module",
+        "dependency", "npm", "pip", "regex", "parse", "deploy", "runtime",
+        "python", "javascript", "typescript", "rust", "golang", "java", "c++",
+        "c#", "ruby", "php", "swift", "kotlin", "bash",
+        "react", "vue", "angular", "svelte", "django", "flask", "fastapi",
+        "next.js", "nextjs", "express", "spring", "rails", "laravel",
+        "pytorch", "tensorflow"
+      ],
+      "phrases": [
+        "write a function", "write code", "fix this code", "throws an error"
+      ],
+      "force_regex": [
+        "```",
+        "\\b[\\w./-]+\\.(py|js|ts|tsx|jsx|rs|go|java|cpp|cc|rb|php|swift|kt|sql|sh|html|css|yaml|yml)\\b"
+      ],
+      "negative": []
+    },
+    {
+      "id": "question",
+      "label": "Question answering",
+      "intent": "Answer a factual or explanatory question.",
+      "principles_section": "Question answering",
+      "keywords": [
+        "explain", "define", "definition", "difference between", "compare",
+        "meaning of", "what is", "what are", "how does", "how do", "why does",
+        "is it true", "pros and cons", "tell me about"
+      ],
+      "phrases": [],
+      "force_regex": [],
+      "negative": [
+        "write", "draft", "compose", "generate", "summarize", "translate",
+        "rewrite", "code", "function", "image", "story", "poem"
+      ]
+    },
+    {
+      "id": "text-gen",
+      "label": "Language & text generation",
+      "intent": "Transform, or generate practical natural-language text.",
+      "principles_section": "Language & text generation",
+      "keywords": [
+        "summarize", "summary", "tl;dr", "translate", "translation", "rewrite",
+        "reword", "paraphrase", "proofread", "draft", "email", "essay",
+        "blog post", "article", "caption", "headline", "tagline", "slogan",
+        "shorten", "condense", "expand", "bullet points", "cover letter",
+        "press release", "outline", "copywriting", "product description"
+      ],
+      "phrases": [
+        "rewrite this", "summarize this", "translate this", "draft an email",
+        "make it shorter", "improve the tone"
+      ],
+      "force_regex": [],
+      "negative": []
+    }
+  ]
+}
