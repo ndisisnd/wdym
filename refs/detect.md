@@ -12,7 +12,7 @@ rest of the flow:
 
 | Variable | Values | Meaning |
 |----------|--------|---------|
-| `prompt_type` | `code` · `creative-writing` · `image-gen` · `question` · `text-gen` · `none` | The detected domain, or `none` when no type is clear |
+| `prompt_type` | `code` · `question` · `text-gen` · `none` | The detected domain, or `none` when no type is clear |
 | `mode` | `global` · `typed:<prompt_type>` | Which principle pool to load (see protocol Step 3) |
 
 The category taxonomy and all signal cues live in **`refs/categories.json`** — the
@@ -51,8 +51,6 @@ ignores any domain signals. Use it when the user wants generic prompt hygiene on
 | `prompt_type` | Intent | Signal cues (any match scores +1) |
 |---------------|--------|-----------------------------------|
 | `code` | Produce, modify, or debug software | Fenced code, file paths, extensions (`.py` `.ts` `.rs` `.go`), `function` `class` `bug` `stack trace` `compile` `regex` `api` `refactor` `implement`; language names (Python, Rust, TypeScript…); framework names (React, Django, Next…) |
-| `creative-writing` | Produce imaginative prose or verse | `story` `poem` `novel` `fiction` `character` `narrative` `lyrics` `screenplay` `dialogue` `worldbuilding` `tale` `verse`; "write a story/poem/song" |
-| `image-gen` | Produce a text-to-image prompt | `generate/create/draw an image`, `a photo of`, `illustration`, `in the style of`, `aspect ratio`, `4k` `8k` `photorealistic`; model names (Midjourney, DALL·E, Stable Diffusion, Flux); dense visual noun-phrase description |
 | `question` | Answer a factual or explanatory question | Leading interrogatives `what` `why` `how` `who` `which`; `explain`, `difference between`, `is it true`, definitional asks — and **no** creation verb present |
 | `text-gen` | Transform or generate natural-language text | `summarize` `translate` `rewrite` `paraphrase` `proofread` `draft` `email` `essay` `blog post` `caption` `shorten` `expand` |
 
@@ -71,11 +69,8 @@ Ties and weak signals always fall back to `global`. Never guess a type on a sing
 ## Tie-breakers for overlapping signals
 
 - A fenced code block or a concrete file path forces `code`, regardless of other cues.
-- `image-gen` requires an explicit *image/visual output* verb or model name — visual
-  adjectives alone (in a story request) stay `creative-writing`.
 - A creation verb (`write`, `draft`, `generate`, `compose`) downgrades `question`: an
-  interrogative phrasing that also asks to *produce* text is `text-gen` or `creative-writing`,
-  not `question`.
+  interrogative phrasing that also asks to *produce* text is `text-gen`, not `question`.
 
 ## Output
 

@@ -30,45 +30,6 @@
       "negative": []
     },
     {
-      "id": "image-gen",
-      "label": "Text-to-image generation",
-      "intent": "Produce a prompt that drives a text-to-image model.",
-      "principles_section": "Image generation",
-      "keywords": [
-        "photorealistic", "hyperrealistic", "illustration", "wallpaper",
-        "concept art", "digital art", "3d render", "aspect ratio", "4k", "8k",
-        "cinematic lighting", "bokeh", "octane", "unreal engine", "portrait",
-        "oil painting", "watercolor", "vector art", "sticker", "poster"
-      ],
-      "phrases": [
-        "in the style of", "a photo of", "an image of", "picture of",
-        "generate an image", "create an image", "draw me", "image of a"
-      ],
-      "force_regex": [
-        "\\b(midjourney|dall[- ]?e|stable diffusion|sdxl|flux)\\b",
-        "--ar\\s+\\d+:\\d+"
-      ],
-      "negative": []
-    },
-    {
-      "id": "creative-writing",
-      "label": "Creative writing",
-      "intent": "Produce imaginative prose or verse.",
-      "principles_section": "Creative writing",
-      "keywords": [
-        "story", "short story", "poem", "poetry", "novel", "fiction",
-        "character", "narrative", "lyrics", "screenplay", "dialogue", "verse",
-        "stanza", "protagonist", "antagonist", "worldbuilding", "sonnet",
-        "haiku", "monologue", "fanfic", "fable", "plot", "prose", "tale"
-      ],
-      "phrases": [
-        "write a story", "write a poem", "write a song", "once upon",
-        "write me a story", "compose a poem"
-      ],
-      "force_regex": [],
-      "negative": []
-    },
-    {
       "id": "question",
       "label": "Question answering",
       "intent": "Answer a factual or explanatory question.",
