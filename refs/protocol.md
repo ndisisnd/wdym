@@ -1,6 +1,6 @@
 ---
 name: Protocol
-description: Execution protocol for prompt-engineer — scan preference, classify, detect, load, select, rewrite, approve, run, record telemetry
+description: Execution protocol for wdym — scan preference, classify, detect, load, select, rewrite, approve, run, record telemetry
 type: reference
 ---
 

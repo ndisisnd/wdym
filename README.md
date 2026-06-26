@@ -3,116 +3,74 @@
 
 # wdym 🗣️❓
 
+_What are you even saying bruh_
+
+Your brain's rampaging with ideas. You write your prompt. But you think: am I missing something? Is this written properly? Will my LLM think that I'm stupid? _(no it won't)_
+
+Introducing `wdym`: a robust, comprehensive skill that translates your blabber into the best possible slop that your LLM can understand without having a token aneurysm.
 
 </div>
 
+## ⚒️ Installation
 
-
-A Claude Code skill that **rewrites your prompts before they run**. It fires
-automatically on every prompt submission, detects what the prompt is about,
-applies a small set of academically-grounded prompting principles, and
-(in the default mode) shows you the enhanced version for approval before it runs.
-
-```
-You type:     fix the bug in my parser
-wdym rewrites: Debug the failing parser in <file>. Describe the input that
-               triggers the bug, the expected vs. actual output, and the fix —
-               with a minimal test that reproduces it.
+```bash
+git clone https://github.com/ndisisnd/wdym.git
+cd wdym
+./install.sh
 ```
 
-## How it works
+Installing elsewhere:
 
-1. **Hook pre-scores** — a `UserPromptSubmit` hook (`hooks/prompt-detect.py`)
-   deterministically classifies the prompt against `refs/categories.json` and
-   injects a `<prompt-detect>` block. Zero tokens, runs every submission.
-2. **Skill routes** — the skill reads that verdict, loads the matching principle
-   pool (a universal base, plus one type-specific layer), selects the top 2–3
-   principles, and rewrites the prompt.
-3. **You decide** — in `comprehensive` mode it presents the rewrite for approval;
-   in `flash` mode it rewrites and runs immediately.
-
-`prompt_type` ∈ `code` · `question` · `text-gen` · `none`. Slash commands,
-≤5-word prompts, and conversational follow-ups pass through untouched.
-
-## Install
-
-```
-/wdym --init            # asks: local (this dir) or global (~/.claude)?
-/wdym --init --local    # skip the question — local scope
-/wdym --init --global   # skip the question — global scope
+```bash
+CLAUDE_CONFIG_DIR=~/.config/claude ./install.sh   # different config dir
+SKILL_NAME=wdym ./install.sh                       # different skill name
 ```
 
-Init writes the pref file and wires the hook with an absolute path. It is
-idempotent — never overwrites an existing pref, never duplicates the hook.
+Once it's installed, run:
 
-## Commands
+```bash
+wdym --init
+```
 
-| Command | Effect |
-|---------|--------|
-| `/wdym --init [--local\|--global]` | Install the pref file + wire the hook |
-| `/wdym --set-mode --flash` / `--comprehensive` | Permanently switch the run mode |
-| `--flash` / `--comprehensive` (inline) | Switch mode and continue this run |
-| `--global` (inline) | Force the universal base, skip type detection |
-| `/wdym --status` (alias `--stats`) | Print the styled local usage report |
+## ❓ How it works
 
-## Run modes
+### The usual run
 
-| Mode | Behaviour |
-|------|-----------|
-| `comprehensive` (default) | Presents the rewrite for approval, then asks whether to run it |
-| `flash` | Rewrites and runs immediately — no gates |
+Just write and `wdym` will translate it for you.
 
-The mode persists in `wdym/pref.json` (local `.claude/wdym/`, else global
-`~/.claude/wdym/` — local wins).
+1. **Catches it** — a `UserPromptSubmit` hook intercepts the prompt. Slash commands, tiny ≤5-word prompts, and "thanks"/"ok"/"continue"-style follow-ups get waved straight through untouched. No ceremony for small talk.
+2. **Figures out what you meant** — classifies the prompt as `code`, `question`, `text-gen`, or `none`.
+3. **Loads the right playbook** — pulls the global principles plus the ones specific to your prompt type, then picks the top 2–3 that actually apply. It strips noise (politeness, threats, bribes, hedging) _before_ it adds structure (specificity, goals, format).
+4. **Rewrites it** — turns your blabber into something your LLM can actually chew on, and shows you _why_ each change was made.
+5. **Ships it** — in **comprehensive** mode it shows you the before/after and waits for your nod; in **flash** mode it just sends the polished version and gets out of the way.
 
-## Self-healing
+That's it. You write like a human, your LLM reads like it's being respected.
 
-The skill verifies its own install on the first substantive prompt of each
-session (protocol **Step 0.5**), against the known-good `refs/manifest.json`. It
-already *degrades* gracefully when wounded; self-healing adds the recovery half —
-`sense → repair → escalate` — so it doesn't run degraded forever and silently.
+### Initialising
 
-| Wound | Action |
-|-------|--------|
-| `pref.json` corrupt | Restore default `{"mode":"comprehensive"}` |
-| `categories.json` missing | Restore from `refs/categories.default.json` |
-| `categories.json` present-but-invalid | **Escalate** (may hold your edits — never clobbered) |
-| Hook path stale (skill dir moved) | Re-wire the hook to the current absolute path |
-| Hook not installed | Escalate → hint to run `/wdym --init` |
-| Principle / telemetry script missing | Escalate (or fall back to global base) |
+`./install.sh` only puts the files on disk. `wdym --init` is what actually arms it:
 
-Two invariants: **missing files with a restore source are recreated**;
-**present-but-invalid files that may hold user edits are escalated, never
-clobbered**. The check is silent when everything is healthy — the happy path
-pays nothing. The hook is self-reporting: a broken config makes it emit
-`verdict: degraded` rather than failing silently, so the self-check can tell
-"hook ran but config is broken" apart from "hook never ran".
+```bash
+wdym --init
+```
 
-## Telemetry
+It asks one thing: **local or global?**
 
-A **local, append-only** usage log lives at `<wdym_dir>/telemetry.jsonl` —
-nothing leaves the machine. Two streams share the file:
+- **Local** — wires the hook and pref into _this_ project's `.claude/`. Only this repo gets the treatment.
+- **Global** — wires it into `~/.claude/`, so every project you touch gets it.
 
-- `src:"hook"` — one line per **submission** (deterministic): provisional type +
-  passthrough flag.
-- `src:"skill"` — one line per **transformed run**: final resolved type, mode,
-  run mode, and outcome.
+Local always wins over global when both exist, so you can run it globally and still override per-project. `--init` writes your `pref.json` (where your run mode lives) and hooks up the `UserPromptSubmit` detector. Run it again any time — it's idempotent and won't clobber your edits.
 
-Read it back with `/wdym --status`. The stream is best-effort data, explicitly
-**excluded** from self-healing (its absence is normal, a bad line is tolerated) —
-telemetry can never block or alter a run.
+## 🌟 Modes
 
-## Layout
+`wdym` runs in two persistent **run modes** and takes a handful of **flags** to switch behaviour. Drop any of these into a prompt _(or run them standalone)_:
 
-| Path | Role |
-|------|------|
-| `SKILL.md` | Skill definition and full reference |
-| `refs/protocol.md` | Execution protocol — Step 0, Step 0.5, Steps 1–8 |
-| `refs/detect.md` | Prompt-type detection protocol |
-| `refs/categories.json` | Type taxonomy + signal cues (user-editable) |
-| `refs/categories.default.json` | Pristine restore source (never edited) |
-| `refs/manifest.json` | Known-good install definition for the self-check |
-| `refs/init.md` | Bootstrap protocol for `--init` |
-| `refs/principles/` | Principle tables (global base + per-type) + `examples.md` |
-| `hooks/prompt-detect.py` | Deterministic pre-scorer + hook-side telemetry |
-| `hooks/telemetry-stats.py` | Aggregator behind `/wdym --status` |
+| Mode / Flag | What it does |
+|---|---|
+| `comprehensive` _(default)_ | Shows you the original, the rationale, and the enhanced prompt — then waits for your approval before running. Cautious by design. |
+| `flash` | Skips the approval gate entirely. Rewrites your prompt and fires it off immediately. For when you trust the glow-up. |
+| `--comprehensive` / `--flash` | Permanently switches your stored run mode and continues with this run. |
+| `--set-mode --flash` / `--set-mode --comprehensive` | Switches the stored mode _without_ touching the current prompt — pure mode management, then exits. |
+| `--global` | Forces the universal principle base and skips type detection for this run. Good for one-off, type-agnostic prompts. |
+| `--init` | Bootstraps the skill — writes `pref.json` and wires the hook, asking local vs. global scope. |
+| `--status` _(alias `--stats`)_ | Prints a styled usage report — prompts seen, transform rate, a ranked by-type breakdown. Telemetry stays 100% local. |

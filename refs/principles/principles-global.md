@@ -1,6 +1,6 @@
 ---
 name: Prompt Engineering Principles — Global base
-description: Universal principle tables (additive + subtractive) always loaded by prompt-engineer; layered with one type file when a prompt_type resolves
+description: Universal principle tables (additive + subtractive) always loaded by wdym; layered with one type file when a prompt_type resolves
 type: reference
 ---
 
