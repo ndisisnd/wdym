@@ -2,13 +2,15 @@
 #
 # install.sh — Installer for the wdym skill.
 #
-# Copies the skill into your Claude Code skills directory so the /wdym
-# command and its UserPromptSubmit hook become available. It does NOT wire
-# the hook or write any pref file — that is what `wdym --init` does, per
-# scope (local vs. global). This installer only places the skill on disk.
+# Copies the skill into your Claude Code skills directory, writes the global
+# pref file, and wires the UserPromptSubmit hook into ~/.claude/settings.json
+# so the skill fires automatically on every prompt across all projects.
+#
+# To configure wdym for one specific project only, cd into it and run
+# "/wdym --init" (or "wdym --init --local") instead.
 #
 # Usage:
-#   ./install.sh                # install to $CLAUDE_CONFIG_DIR/skills/wdym (default ~/.claude)
+#   ./install.sh                # install globally (default ~/.claude)
 #   SKILL_NAME=wdym ./install.sh
 #   CLAUDE_CONFIG_DIR=~/.claude ./install.sh
 #
@@ -84,10 +86,10 @@ if command -v rsync >/dev/null 2>&1; then
     --exclude '.DS_Store' \
     --exclude 'install.sh' \
     --exclude 'telemetry.jsonl' \
+    --exclude 'pref.json' \
     --include 'SKILL.md' \
     --include 'README.md' \
     --include 'CHANGELOG.md' \
-    --include 'pref.json' \
     --include 'refs/***' \
     --include 'hooks/***' \
     --include 'asset/***' \
@@ -96,7 +98,6 @@ if command -v rsync >/dev/null 2>&1; then
 else
   # Portable fallback.
   cp -f  "$SOURCE_DIR/SKILL.md"   "$TARGET_DIR/"
-  cp -f  "$SOURCE_DIR/pref.json"  "$TARGET_DIR/"
   [[ -f "$SOURCE_DIR/README.md"    ]] && cp -f "$SOURCE_DIR/README.md"    "$TARGET_DIR/"
   [[ -f "$SOURCE_DIR/CHANGELOG.md" ]] && cp -f "$SOURCE_DIR/CHANGELOG.md" "$TARGET_DIR/"
   for d in refs hooks asset; do
@@ -107,6 +108,14 @@ else
   find "$TARGET_DIR" -name '.DS_Store' -delete 2>/dev/null || true
 fi
 info "skill files copied"
+
+# Copy pref.json only on a fresh install — preserve any existing user prefs.
+if [[ -f "$TARGET_DIR/pref.json" ]]; then
+  info "pref.json already exists — keeping existing user preferences"
+else
+  cp -f "$SOURCE_DIR/pref.json" "$TARGET_DIR/"
+  info "pref.json installed (defaults)"
+fi
 
 # Hooks are invoked as `python3 "<path>"`, but mark them executable anyway.
 chmod +x "$TARGET_DIR/hooks/prompt-detect.py" "$TARGET_DIR/hooks/telemetry-stats.py"
@@ -120,7 +129,68 @@ else
   exit 1
 fi
 
+# --- Global init: pref.json --------------------------------------------------
+GLOBAL_PREF_DIR="$CLAUDE_CONFIG_DIR/wdym"
+GLOBAL_PREF_PATH="$GLOBAL_PREF_DIR/pref.json"
+
+mkdir -p "$GLOBAL_PREF_DIR"
+if [[ -f "$GLOBAL_PREF_PATH" ]]; then
+  info "pref.json already exists (global) — keeping existing preferences"
+else
+  printf '{"mode":"comprehensive"}\n' > "$GLOBAL_PREF_PATH"
+  info "pref.json created at global scope (mode: comprehensive)"
+fi
+
+# --- Global init: wire hook into ~/.claude/settings.json ---------------------
+SETTINGS_PATH="$CLAUDE_CONFIG_DIR/settings.json"
+HOOK_CMD="python3 \"$TARGET_DIR/hooks/prompt-detect.py\""
+
+hook_result=$(python3 - "$SETTINGS_PATH" "$HOOK_CMD" <<'PYEOF'
+import sys, json, os
+
+settings_path = sys.argv[1]
+hook_cmd = sys.argv[2]
+
+if os.path.exists(settings_path):
+    with open(settings_path) as f:
+        try:
+            settings = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"unparseable: {e}", file=sys.stderr)
+            sys.exit(1)
+else:
+    settings = {}
+
+hooks = settings.setdefault("hooks", {})
+ups = hooks.setdefault("UserPromptSubmit", [])
+
+for group in ups:
+    for h in group.get("hooks", []):
+        if h.get("command") == hook_cmd:
+            print("already_present")
+            sys.exit(0)
+
+ups.append({"hooks": [{"type": "command", "command": hook_cmd}]})
+
+with open(settings_path, "w") as f:
+    json.dump(settings, f, indent=2)
+    f.write("\n")
+
+print("added")
+PYEOF
+)
+
+if [[ "$hook_result" == "added" ]]; then
+  info "hook wired into $SETTINGS_PATH (UserPromptSubmit)"
+elif [[ "$hook_result" == "already_present" ]]; then
+  info "hook already present in $SETTINGS_PATH — no change"
+else
+  err "could not wire hook — check $SETTINGS_PATH manually"
+  exit 1
+fi
+
 echo
-ok "wdym installed to $TARGET_DIR"
+ok "wdym installed and initialised globally"
 echo
-echo "Run \"wdym --init\" to initialise the skill in your local directory."
+echo "The skill fires automatically on every prompt across all projects."
+echo "To configure wdym for a specific project only, cd into it and run \"/wdym --init\"."
