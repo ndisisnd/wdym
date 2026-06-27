@@ -25,32 +25,35 @@ A `UserPromptSubmit` hook (`hooks/prompt-detect.py`) scores the prompt against
 `refs/categories.json` and injects a `<prompt-detect source="hook">` block into
 context. **When that block is present, trust it instead of re-scoring:**
 
-- `verdict: clear` → adopt its `prompt_type` and `mode` verbatim. Done.
-- `verdict: global` → `prompt_type = none`, `mode = global`. Done.
+- `verdict: clear` → adopt its `prompt_type` and `mode` verbatim. **Skip to Output.**
+- `verdict: global` → `prompt_type = none`, `mode = global`. **Skip to Output.**
 - `verdict: ambiguous` → the scorer found no clear winner. Adjudicate **only among
-  its `candidates`** (or all types if `candidates: none`) using the manual algorithm
-  below. The scorer's `scores:` line is your prior.
+  its `candidates`** (or all types if `candidates: none`) using Step 2 below. The
+  scorer's `scores:` line is your prior. **Skip Step 1.**
 - `verdict: degraded` → the hook ran but its config (`categories.json`) is unusable,
-  so it produced no scores. Honour `global_flag: true` (→ `mode = global`); otherwise
-  run the full manual protocol below from scratch. The self-check (protocol Step 0.5)
-  is responsible for healing the config — detection still proceeds normally here.
+  so it produced no scores. Honour `global_flag: true` (→ `mode = global`, skip to
+  Output); otherwise run the full manual protocol (Steps 1–2) from scratch. The
+  self-check (protocol Step 0.5) is responsible for healing the config — detection
+  still proceeds normally here.
 
-If no hook block is present (hook disabled or failed), run the full manual protocol
-below from scratch. The hook is deterministic and free; the manual path is the
-LLM fallback that also reads intent the keyword scorer can miss.
+If no hook block is present (hook disabled or failed), run Steps 1–2 from scratch.
+The hook is deterministic and free; the manual path is the LLM fallback that also
+reads intent the keyword scorer can miss.
 
-## Flag handling — `--global`
+## Step 1 — Check for `--global` flag
 
 Check the raw prompt for a `--global` token (anywhere in the text).
 
-- **Present** → set `prompt_type = none`, `mode = global`. **Skip detection entirely.**
+- **Present** → set `prompt_type = none`, `mode = global`. **Skip to Output.**
   Strip the `--global` token from the prompt before it reaches the rewrite step.
-- **Absent** → run detection below.
+- **Absent** → continue to Step 2.
 
 `--global` is the escape hatch: it forces the universal, academically-proven base and
 ignores any domain signals. Use it when the user wants generic prompt hygiene only.
 
-## Type taxonomy
+## Step 2 — Detect prompt type
+
+### Type taxonomy
 
 | `prompt_type` | Intent | Signal cues (any match scores +1) |
 |---------------|--------|-----------------------------------|
@@ -58,7 +61,7 @@ ignores any domain signals. Use it when the user wants generic prompt hygiene on
 | `question` | Answer a factual or explanatory question | Leading interrogatives `what` `why` `how` `who` `which`; `explain`, `difference between`, `is it true`, definitional asks — and **no** creation verb present |
 | `text-gen` | Transform or generate natural-language text | `summarize` `translate` `rewrite` `paraphrase` `proofread` `draft` `email` `essay` `blog post` `caption` `shorten` `expand` |
 
-## Resolution algorithm
+### Resolution algorithm
 
 1. For each type, count the number of **distinct** signal cues matched in the raw prompt → `score[type]`.
 2. Let `winner` be the highest-scoring type and `runner_up` the second-highest.
@@ -70,7 +73,7 @@ ignores any domain signals. Use it when the user wants generic prompt hygiene on
 
 Ties and weak signals always fall back to `global`. Never guess a type on a single cue.
 
-## Tie-breakers for overlapping signals
+### Tie-breakers for overlapping signals
 
 - A fenced code block or a concrete file path forces `code`, regardless of other cues.
 - A creation verb (`write`, `draft`, `generate`, `compose`) downgrades `question`: an
