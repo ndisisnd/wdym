@@ -74,6 +74,7 @@ Local always wins over global when both exist, so you can run it globally and st
 | `--global` | Forces the universal principle base and skips type detection for this run. Good for one-off, type-agnostic prompts. |
 | `--init` | Bootstraps the skill — writes `pref.json` and wires the hook, asking local vs. global scope. |
 | `--status` _(alias `--stats`)_ | Prints a styled usage report — prompts seen, transform rate, a ranked by-type breakdown. Telemetry stays 100% local. |
+| `--help` | Lists all commands, modes, and prompt types with one-liners. |
 
 ---
 

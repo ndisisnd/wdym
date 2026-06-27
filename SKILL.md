@@ -21,6 +21,7 @@ description: >
   wdym/telemetry.jsonl (prompts seen, types transformed, pure global runs),
   readable via the /wdym --status command, which renders a styled,
   RTK-gain-style report (totals, transform-rate meter, ranked by-type table).
+  A --help flag lists all available commands, modes, and prompt types with one-liners.
 model: claude-sonnet-4-6
 allowed_tools:
   - AskUserQuestion

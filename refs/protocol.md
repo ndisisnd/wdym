@@ -21,6 +21,43 @@ Use the first that exists — a local pref overrides a global one. Throughout th
 
 First, check the raw prompt for the **`--init`** directive (anywhere in the text): if present, run `refs/init.md` end-to-end to bootstrap the skill (it asks the user for local vs. global scope), then **terminate** — do not continue to Step 1, do not enhance any prompt.
 
+Next, check for the **`--help`** directive (anywhere in the text): if present, print the following block verbatim inside a fenced code block, then **terminate** — do not continue to Step 1, do not enhance any prompt:
+
+```
+wdym — prompt rewriter for Claude Code
+
+Intercepts every substantive prompt, applies structured rewrite principles to make
+it sharper and better scoped, then submits the enhanced version. Fires automatically
+via a UserPromptSubmit hook — no slash command needed. Detects prompt type (code,
+question, text-gen) and loads matching principles on top of the universal base.
+
+COMMANDS
+────────────────────────────────────────────────────────────────────
+  /wdym --init                       Bootstrap: install pref file + wire the hook
+  /wdym --status  (--stats)          Usage report: prompts seen, transform rate, by-type
+  /wdym --set-mode --flash           Permanently switch to flash mode
+  /wdym --set-mode --comprehensive   Permanently switch to comprehensive mode
+  /wdym --help                       Show this message
+
+INLINE FLAGS  (drop anywhere in a prompt)
+────────────────────────────────────────────────────────────────────
+  --flash                            Switch to flash mode and continue with this prompt
+  --comprehensive                    Switch to comprehensive mode and continue
+  --global                           Force universal principles, skip type detection
+
+RUN MODES
+────────────────────────────────────────────────────────────────────
+  comprehensive  (default)           Shows original → rationale → enhanced; asks to approve
+  flash                              Rewrites and fires immediately — no gate
+
+PROMPT TYPES  (auto-detected)
+────────────────────────────────────────────────────────────────────
+  code                               Coding tasks, bugs, refactors, API work
+  question                           Explanatory or conceptual questions
+  text-gen                           Summaries, drafts, translations, emails
+  (none)                             Falls back to global principles only
+```
+
 Next, check for the **`--status`** directive (alias **`--stats`**, anywhere in the text): if present, run `python3 "<SKILL_DIR>/hooks/telemetry-stats.py"` (the script resolves the active-scope `wdym/telemetry.jsonl` itself), print its output **verbatim inside a fenced code block** so the table alignment and any ANSI styling survive, then **terminate** — do not continue to Step 1, do not enhance any prompt. The script renders a styled report (totals, transform-rate meter, ranked "By Type" table) and prints `No telemetry recorded yet.` when the log is missing or empty. See the **Telemetry** section below for what the two streams contain.
 
 Otherwise, read the resolved pref file and parse its `mode` key into `run_mode` (`comprehensive` · `flash`). This persistent run mode is distinct from the principle-pool `mode` (`global` / `typed:…`) resolved in Step 2.
