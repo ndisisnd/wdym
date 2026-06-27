@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# install.sh — Installer for the wdym (prompt-engineer) skill.
+# install.sh — Installer for the wdym skill.
 #
 # Copies the skill into your Claude Code skills directory so the /wdym
 # command and its UserPromptSubmit hook become available. It does NOT wire
@@ -28,7 +28,7 @@ info()  { printf '  \033[0;36m•\033[0m %s\n' "$1"; }
 ok()    { printf '\033[0;32m✓\033[0m %s\n' "$1"; }
 err()   { printf '\033[0;31m✗\033[0m %s\n' "$1" >&2; }
 
-echo "Installing the wdym (prompt-engineer) skill"
+echo "Installing the wdym skill"
 echo "  from: $SOURCE_DIR"
 echo "  to:   $TARGET_DIR"
 echo

@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-06-27 (2)
+
+Add dedication line to README and drop "(prompt-engineer)" qualifier from the install script banner text. Cosmetic only — no behaviour changes.
+
 ## 2026-06-27
 
 Merged the standalone `refs/principles/examples.md` into the principle files and made worked examples a first-class, parsed input. Each principle file now ends with a **Worked examples** section: the five original multi-principle rewrites moved into `principles-global.md`, and a worked example was authored for every previously-uncovered principle across the global base (21 principles), code (6), question (5), and text-gen (5) files. The short authoring guide relocated into `principles-global.md`. Worked examples are no longer reference-only — protocol Step 3 now parses each `### heading` block, keys it to its principle (extending the tuple with a `worked_example` field, with a family-showcase fallback for the combined subtractive example), and Step 5 uses it alongside the row Exemplar as a rewrite pattern. Updated `SKILL.md` and `ARCHITECTURE.md` to match and removed all references to the deleted `examples.md`. Also includes a pre-existing staged change to `refs/detect.md` and the newly tracked `ARCHITECTURE.md`.
