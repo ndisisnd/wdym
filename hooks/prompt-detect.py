@@ -105,7 +105,10 @@ def score_category(cat: dict, text: str) -> int:
 
 
 def is_forced(cat: dict, text: str) -> bool:
-    return any(re.search(pat, text) for pat in cat.get("force_regex", []))
+    if not any(re.search(pat, text) for pat in cat.get("force_regex", [])):
+        return False
+    # Negatives can cancel out force signals — only treat as forced if net score > 0.
+    return score_category(cat, text) > 0
 
 
 def emit_degraded(reason: str, global_flag: bool, raw: str = "") -> int:
@@ -173,11 +176,28 @@ def main() -> int:
     if global_flag:
         verdict, prompt_type = "global", "none"
     elif forced:
-        top = sorted(forced, key=lambda i: scores[i], reverse=True)
-        if len(top) == 1 or scores[top[0]] > scores[top[1]]:
-            verdict, prompt_type = "clear", top[0]
+        forced_set = set(forced)
+        top_forced_score = max(scores[f] for f in forced)
+        top_non_forced_score = max(
+            (v for k, v in scores.items() if k not in forced_set), default=0
+        )
+        if top_forced_score >= top_non_forced_score:
+            # Forced category leads or ties — forced resolution wins.
+            top = sorted(forced, key=lambda i: scores[i], reverse=True)
+            if len(top) == 1 or scores[top[0]] > scores[top[1]]:
+                verdict, prompt_type = "clear", top[0]
+            else:
+                candidates = [i for i in top if scores[i] == scores[top[0]]]
         else:
-            candidates = [i for i in top if scores[i] == scores[top[0]]]
+            # A non-forced category outscores the forced one — fall through to
+            # normal threshold scoring so the stronger signal wins.
+            ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+            win, win_s = ranked[0]
+            run_s = ranked[1][1] if len(ranked) > 1 else 0
+            if win_s >= min_score and (win_s - run_s) >= min_lead:
+                verdict, prompt_type = "clear", win
+            elif win_s >= min_score:
+                candidates = [k for k, v in ranked if v == win_s]
     else:
         ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
         win, win_s = ranked[0]

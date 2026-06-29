@@ -123,3 +123,19 @@ Two append-only streams merge into `wdym/telemetry.jsonl`:
 - `src:"skill"` — written by Step 8 on every substantive run (final outcome)
 
 View with `/wdym --status`.
+
+## Detection Scoring
+
+The hook scores the prompt against every category in `categories.json` and resolves a verdict in three tiers:
+
+**Tier 1 — `--global` flag.** Present anywhere in the prompt → `verdict: global`, skip scoring.
+
+**Tier 2 — `force_regex` (structural overrides).** Each category may carry `force_regex` patterns for signals that are structurally unambiguous (e.g. a fenced code block forces `code`). A category is treated as *forced* only when:
+1. At least one `force_regex` pattern matches, **and**
+2. Its net score (after the `negative` list is applied) is **> 0** — negatives can cancel a force signal entirely.
+
+When one or more categories are forced, forced resolution applies: the top-scoring forced category wins **only if its score ≥ the top non-forced category score**. If a non-forced category outscores all forced ones, the forced signal is overridden and normal threshold scoring (Tier 3) takes over. This prevents a weak interrogative match from hijacking a clearly code or text-gen prompt.
+
+**Tier 3 — threshold scoring.** Winner must reach `min_score` (default 2) with a lead of at least `min_lead` (default 1) over the runner-up. Ties or weak signals fall back to `verdict: ambiguous`.
+
+The `question` category uses two `force_regex` patterns — `^(is|are|do|does|did|should|will|...)\\b` and `\\?\\s*$` — with the full negative list (`write`, `draft`, `function`, `summarize`, …) acting as the cancellation guard. `can`/`could`/`would` are intentionally excluded from the interrogative pattern because they double as polite-request starters for code and text-gen tasks.

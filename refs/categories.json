@@ -40,7 +40,10 @@
         "is it true", "pros and cons", "tell me about"
       ],
       "phrases": [],
-      "force_regex": [],
+      "force_regex": [
+        "^(is|are|do|does|did|should|will|was|were|have|has|had)\\b",
+        "\\?\\s*$"
+      ],
       "negative": [
         "write", "draft", "compose", "generate", "summarize", "translate",
         "rewrite", "code", "function", "image", "story", "poem"
