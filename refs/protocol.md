@@ -6,9 +6,9 @@ type: reference
 
 # Protocol
 
-Emit `Step X/8 — <title>` at the start of each step, unconditionally.
+Do not emit step markers during normal operation — keep the happy path clean. The visible output is limited to the `Self-check` repair line (Step 0.5, only when something was healed or escalated) and the Original → rationale → Enhanced block (Step 6).
 
-## Step 0 — Scan preference `[model: haiku]`
+## Step 0 — Scan preference
 
 **Always run this first, before anything else.**
 
@@ -80,7 +80,7 @@ A switch directive changes the stored preference permanently — every subsequen
 
 This step is the preference scan and does not count toward the `Step X/8` numbering.
 
-## Step 0.5 — Self-check `[model: haiku]`
+## Step 0.5 — Self-check
 
 **Runs once per session, immediately after Step 0, before Step 1.** Cache a session flag `self_check_done`; if it is already set, skip this step entirely (the skill is verified for the session). This keeps the check nearly free — it touches disk only on the first substantive prompt.
 
@@ -126,7 +126,7 @@ Self-check: <repaired items>; <warnings/escalations>
 
 This step does not count toward the `Step X/8` numbering.
 
-## Step 1 — Classify prompt `[model: haiku]`
+## Step 1 — Classify prompt
 
 Read the raw prompt from the `UserPromptSubmit` payload. Check three passthrough conditions in order:
 - (a) Prompt starts with `/`
@@ -135,7 +135,7 @@ Read the raw prompt from the `UserPromptSubmit` payload. Check three passthrough
 
 If any condition matches, pass the prompt through unmodified. Produce no output. Terminate.
 
-## Step 2 — Detect prompt type `[model: haiku]`
+## Step 2 — Detect prompt type
 
 Run `refs/detect.md` end-to-end against the raw prompt. It:
 - handles the `--global` flag (forces `mode = global`, strips the flag), and otherwise
@@ -143,7 +143,7 @@ Run `refs/detect.md` end-to-end against the raw prompt. It:
 
 It first checks for a `<prompt-detect source="hook">` block (the deterministic pre-scorer) and adopts its verdict when `clear`/`global`, adjudicating only when `ambiguous`. Produce two variables: `prompt_type` (`code` · `question` · `text-gen` · `none`) and `mode` (`global` · `typed:<prompt_type>`). Emit the `Detected: …` line defined by the protocol. Cache both for the session.
 
-## Step 3 — Load principles `[model: haiku]`
+## Step 3 — Load principles
 
 Principles live in `refs/principles/`, split by type so each run reads only what it needs:
 
@@ -164,7 +164,7 @@ If `mode = global`, `principles_list` is the global base only — no type file i
 
 **Why per-type, not once-globally:** a session's `prompt_type` changes between prompts (a code edit, then a conceptual question). Caching one fixed list would serve the wrong pool after a switch. Caching *per file* keeps every run correct — it rebuilds `principles_list = global base ∪ rows for this run's type` from cache — while still reading each file only once. A code→question→code session reads `global` once, `code` once, `question` once; the second code prompt reads nothing.
 
-## Step 4 — Select top 2–3 principles `[model: sonnet]`
+## Step 4 — Select top 2–3 principles
 
 Score each entry in `principles_list` against the prompt:
 - **Additive**: does the prompt lack what it adds (specificity, goal, format, role, examples, or the domain-specific gap)?
@@ -172,13 +172,13 @@ Score each entry in `principles_list` against the prompt:
 
 Rank subtractive matches above additive matches — remove noise before adding structure. When a type section is loaded, a matching type-specific principle outranks a global principle of equal score. **Final tie-break: rows are ordered by impact (highest first) within each table — when two applicable principles are otherwise tied, prefer the one listed earlier.** Row order is only a tie-break; never let it promote a barely-applicable principle over a clearly-applicable one. Select the 2–3 highest-scoring principles. Never select all principles at once. Produce `selected_principles` (ordered list, highest relevance first).
 
-## Step 5 — Rewrite prompt `[model: sonnet]`
+## Step 5 — Rewrite prompt
 
 Apply each principle in `selected_principles` to the raw prompt. Each principle's effect must be visible in the rewrite. For each, use the row **Exemplar** and, when present, the parsed **worked_example** as patterns for how the change should look — adapt them to this prompt, never copy verbatim. Do not add filler. Produce:
 - `enhanced_prompt` — the rewritten prompt as plain text
 - `rationale_table` — one row per principle: `Principle | Why applied`
 
-## Step 6 — Present for approval `[model: haiku]`
+## Step 6 — Present for approval
 
 **Flash mode (`run_mode = flash`):** skip this step entirely — produce no approval gate — and go straight to Step 7.
 
@@ -191,7 +191,7 @@ Call `AskUserQuestion` with options: `Approve`, `Reject`.
 On `Reject` → emit the **flash-mode hint** (see Step 7), then terminate.
 On `Approve` → proceed to Step 7.
 
-## Step 7 — Run `[model: haiku]`
+## Step 7 — Run
 
 **Flash mode (`run_mode = flash`):** submit `enhanced_prompt` as the active prompt immediately — no `AskUserQuestion`. Terminate.
 
@@ -209,7 +209,7 @@ Want to automatically transform your prompts without approval? Set to flash mode
 
 Emit it only on terminate, only in comprehensive mode — never in flash mode, and never when the user chose to run the enhanced prompt.
 
-## Step 8 — Record telemetry `[model: haiku]`
+## Step 8 — Record telemetry
 
 The **final** action of every substantive run — one that reached the rewrite (Step 5). It fires at **all** exits in **both** modes: after Step 7 submits the enhanced prompt, after a Step 6 `Reject`, and after a Step 7 `Terminate session`. When a flash-mode hint is emitted, log telemetry **after** it. Passthrough exits (Step 1) are **not** logged here — the hook already records those deterministically, so logging them again would double-count.
 

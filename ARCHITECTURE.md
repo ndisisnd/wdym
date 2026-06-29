@@ -26,47 +26,47 @@ User types a prompt and submits
 ┌─────────────────────────────────────────────────────────────────┐
 │  SKILL.md execution begins                                      │
 │                                                                 │
-│  Step 0  (Haiku)   Read pref.json → run_mode                   │
-│          │         Handle --init / --status / --set-mode flags  │
+│  Step 0    Read pref.json → run_mode                           │
+│          │ Handle --init / --status / --set-mode flags          │
 │          ▼                                                      │
-│  Step 0.5 (Haiku)  Self-check against manifest.json            │
-│          │         Heal missing / corrupt files silently        │
+│  Step 0.5  Self-check against manifest.json                    │
+│          │ Heal missing / corrupt files silently                │
 │          ▼                                                      │
-│  Step 1  (Haiku)   Re-check passthrough conditions             │
+│  Step 1    Re-check passthrough conditions                     │
 │          │                                                      │
 │          ├── passthrough ──────────────────────────────────────►│ (no-op, terminate)
 │          │                                                      │
 │          ▼                                                      │
-│  Step 2  (Haiku)   Classify prompt type                        │
-│          │         Read <prompt-detect> verdict from hook       │
-│          │         • clear    → trust directly                  │
-│          │         • ambiguous→ adjudicate among candidates     │
-│          │         • degraded → run manual LLM algorithm        │
-│          │         Output: prompt_type (code|question|          │
-│          │                 text-gen|none) + mode                │
+│  Step 2    Classify prompt type                                │
+│          │ Read <prompt-detect> verdict from hook               │
+│          │ • clear    → trust directly                          │
+│          │ • ambiguous→ adjudicate among candidates             │
+│          │ • degraded → run manual LLM algorithm                │
+│          │ Output: prompt_type (code|question|                  │
+│          │         text-gen|none) + mode                        │
 │          ▼                                                      │
-│  Step 3  (Haiku)   Load principles (lazy, cached per session)  │
-│          │         Always: principles-global.md                 │
-│          │         If typed: principles-<type>.md               │
+│  Step 3    Load principles (lazy, cached per session)          │
+│          │ Always: principles-global.md                         │
+│          │ If typed: principles-<type>.md                       │
 │          ▼                                                      │
-│  Step 4  (Sonnet)  Score & select top 2–3 principles           │
-│          │         Subtractive > Additive > type-specific       │
+│  Step 4    Score & select top 2–3 principles                   │
+│          │ Subtractive > Additive > type-specific               │
 │          ▼                                                      │
-│  Step 5  (Sonnet)  Rewrite prompt                              │
-│          │         Output: enhanced_prompt + rationale_table    │
+│  Step 5    Rewrite prompt                                      │
+│          │ Output: enhanced_prompt + rationale_table            │
 │          ▼                                                      │
-│  Step 6  (Haiku)   [comprehensive mode only]                   │
-│          │         Show original → rationale → enhanced         │
-│          │         AskUserQuestion: Approve | Reject            │
+│  Step 6    [comprehensive mode only]                           │
+│          │ Show original → rationale → enhanced                 │
+│          │ AskUserQuestion: Approve | Reject                    │
 │          │                                                      │
 │          ├── Reject ──────────────────────────────────────────►│ (terminate)
 │          │                                                      │
 │          ▼                                                      │
-│  Step 7  (Haiku)   Submit enhanced_prompt                      │
-│          │         Flash: immediate                             │
-│          │         Comprehensive: Run | Terminate               │
+│  Step 7    Submit enhanced_prompt                              │
+│          │ Flash: immediate                                      │
+│          │ Comprehensive: Run | Terminate                        │
 │          ▼                                                      │
-│  Step 8  (Haiku)   Append src:"skill" line → telemetry.jsonl  │
+│  Step 8    Append src:"skill" line → telemetry.jsonl          │
 └─────────────────────────────────────────────────────────────────┘
              │
              ▼
@@ -97,14 +97,6 @@ wdym/
         └── principles-text-gen.md  Text-gen principles
                                     (each file ends with worked examples, parsed and attached per principle; global base also carries the authoring guide)
 ```
-
-## Model Assignment
-
-| Steps       | Model  | Reason                                     |
-|-------------|--------|--------------------------------------------|
-| 0, 0.5, 1–3 | Haiku  | Lightweight reads, deterministic checks    |
-| 4–5         | Sonnet | Principle scoring and prompt rewriting     |
-| 6–8         | Haiku  | Approval UI and telemetry                  |
 
 ## Run Modes
 
