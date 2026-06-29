@@ -102,7 +102,7 @@ When a comprehensive-mode session ends in **terminate** (Reject at Step 6 or Ter
 
 ## Step-by-step protocol
 
-Follow `refs/protocol.md` end-to-end. A preliminary Step 0 scans `pref.json` for the run mode and applies any `--flash` / `--comprehensive` switch (and handles `--init` and `--status`). A once-per-session Step 0.5 self-check then verifies the install against `refs/manifest.json` and heals any wound it safely can. The eight numbered steps are: classify prompt, detect prompt type, load principles, select top 2–3 principles, rewrite prompt, present for approval, run or terminate, record telemetry. Emit `Step X/8 — <title>` at the start of each numbered step, unconditionally. In flash mode, Steps 6 and 7 collapse to an immediate run with no gates; Step 8 still records the run.
+Follow `refs/protocol.md` end-to-end. A preliminary Step 0 scans `pref.json` for the run mode and applies any `--flash` / `--comprehensive` switch (and handles `--init` and `--status`). A once-per-session Step 0.5 self-check then verifies the install against `refs/manifest.json` and heals any wound it safely can. The eight numbered steps are: classify prompt, detect prompt type, load principles, select top 2–3 principles, rewrite prompt, present for approval, run or terminate, record telemetry. Do not emit step markers during normal operation — keep the happy path clean; visible output is limited to any self-check repair line (Step 0.5) and the Original → rationale → Enhanced block (Step 6). In flash mode, Steps 6 and 7 collapse to an immediate run with no gates; Step 8 still records the run.
 
 ## Caching
 

@@ -11,9 +11,8 @@
       "keywords": [
         "function", "def ", "class", "method", "variable", "compile", "debug",
         "bug", "stack trace", "traceback", "exception", "refactor", "implement",
-        "endpoint", "api", "backend", "frontend", "database", "query", "sql",
-        "schema", "algorithm", "unit test", "async", "await", "import", "module",
-        "dependency", "npm", "pip", "regex", "parse", "deploy", "runtime",
+        "sql", "algorithm", "unit test", "async", "await", "import", "module",
+        "dependency", "npm", "pip", "regex", "deploy", "runtime",
         "python", "javascript", "typescript", "rust", "golang", "java", "c++",
         "c#", "ruby", "php", "swift", "kotlin", "bash",
         "react", "vue", "angular", "svelte", "django", "flask", "fastapi",
