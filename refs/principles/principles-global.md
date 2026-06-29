@@ -29,7 +29,7 @@ Subtractive principles always rank above additive ones when both apply: remove n
 
 | Principle | Description | When to apply | Exemplar |
 |-----------|-------------|---------------|----------|
-| Context priming | Provide relevant background the model needs but cannot infer from the prompt alone. | Prompt references "it", "this", "the project" without defining the referent | `why is it slow?` → `My Django list view runs 12 SQL queries per request. Why is it slow?` |
+| Context priming | Provide relevant background the model needs but cannot infer from the prompt alone. | Prompt references "it", "this", "the project" without defining the referent | `why is it slow?` → `Why is [component/service] slow? It [describe observed symptom — e.g., times out after X seconds under Y load].` |
 | Specificity | Add concrete details the original omits: format, length, audience, or constraints. | Prompt is vague ("help me with X", "write something about Y") | `write about dogs` → `Write a 200-word overview of common dog breeds for first-time owners.` |
 | Goal specification | State what a good output looks like — not just what to do, but what success means. | No success criteria stated; output shape is unclear | `review my code` → `Review my code and list the top 3 issues by severity, each with a concrete fix.` |
 | Constraint injection | Add explicit boundaries: word count, tone, scope limits, what to exclude. | Prompt is open-ended; response risk of being too long, too broad, or off-topic | `explain quantum computing` → `Explain quantum computing in under 150 words, no equations.` |
@@ -64,15 +64,15 @@ Detect and remove these. They add tokens, dilute the instruction, and do not imp
 
 ## Worked examples
 
-Each worked example combines 2–3 principles on one prompt; the row-level **Exemplars** in the tables above show each principle alone. These **are parsed** at runtime: Step 3 keys each block to its principle (by the `###` heading) and attaches it as that principle's `worked_example`, and Step 5 uses it alongside the row Exemplar as a rewrite pattern. Use them as patterns, not templates to copy verbatim.
+Each worked example combines 2–3 principles on one prompt; the row-level **Exemplars** in the tables above show each principle alone. Step 3 loads this section as flat reference context; Step 5 uses it alongside the row Exemplars as a bank of before→after patterns showing principles in combination. Use them as patterns, not templates to copy verbatim.
 
 ### Context priming
 
 **Before:** `why does it keep crashing?`
 
-**After:** `My Node.js worker crashes after ~2 hours processing a Kafka stream, with no error in the logs. Walk through the likely causes, then suggest what to instrument first.`
+**After:** `My [service/component] crashes [describe when — e.g., after ~2 hours / under high load], with [describe what you observe — e.g., no error in the logs / OOM signal]. Walk through the likely causes, then suggest what to instrument first.`
 
-**Principles applied:** Context priming (runtime, workload, and symptom the model cannot infer), Chain-of-thought elicitation (walk through causes before recommending).
+**Principles applied:** Context priming (placeholders mark where the user must supply runtime, workload, and symptom — never invent them), Chain-of-thought elicitation (walk through causes before recommending).
 
 ---
 

@@ -149,18 +149,16 @@ Principles live in `refs/principles/`, split by type so each run reads only what
 
 - `principles-global.md` — global base (additive + subtractive). **Always needed.**
 - `principles-code.md` · `principles-question.md` · `principles-text-gen.md` — one file per `prompt_type`.
-Each principle file also carries a **Worked examples** section below its tables (and the global base, a short authoring guide). The worked examples **are parsed** and attached to their principle (see *Worked-example parsing* below); the authoring guide is documentation and is not.
+Each principle file also carries a **Worked examples** section below its tables (and the global base, a short authoring guide). The worked examples are loaded as reference context for Step 5; the authoring guide is documentation and is not.
 
 **Session cache — read each file at most once per session.** Maintain a session-scoped `loaded` set of file keys already in context. Before any `Read`, check `loaded`; only read a file whose key is absent, then add the key. This means the global base is read on the **first** substantive prompt of the session and reused thereafter, and each type file is read **lazily** — only the first time that `prompt_type` actually appears.
 
 Assemble `principles_list` for **this** run from the cached parses:
 
-1. **Global base** — if `global` not in `loaded`, read `refs/principles/principles-global.md`, parse the additive and subtractive tables into `(principle, type, description, when_to_apply, exemplar, worked_example)` tuples, attach the **Worked examples** section per *Worked-example parsing* below, and mark `global` loaded. Start `principles_list` from the cached global base.
-2. **Type section** — only if `mode = typed:<prompt_type>`: if `<prompt_type>` not in `loaded`, read `refs/principles/principles-<prompt_type>.md`, parse its rows (tagged with their `type` column) and its **Worked examples** section the same way, and mark `<prompt_type>` loaded. Append the cached rows for `<prompt_type>` to `principles_list`.
+1. **Global base** — if `global` not in `loaded`, read `refs/principles/principles-global.md`, parse the additive and subtractive tables into `(principle, type, description, when_to_apply, exemplar)` tuples, retain the **Worked examples** section as flat context, and mark `global` loaded. Start `principles_list` from the cached global base.
+2. **Type section** — only if `mode = typed:<prompt_type>`: if `<prompt_type>` not in `loaded`, read `refs/principles/principles-<prompt_type>.md`, parse its rows (tagged with their `type` column) the same way, retain its **Worked examples** section as flat context, and mark `<prompt_type>` loaded. Append the cached rows for `<prompt_type>` to `principles_list`.
 
 If `mode = global`, `principles_list` is the global base only — no type file is read.
-
-**Worked-example parsing.** Each `### <heading>` block under **Worked examples** holds a `Before`, an `After`, and a **Principles applied** line. Key it to its **primary principle** — the principle whose name the heading begins with (ignore any ` — qualifier` suffix) — and store it on that principle's tuple as `worked_example` (a `{before, after, principles_applied}` record). A heading that names no single principle (e.g. *Subtractive — noise removal*) is a family showcase: attach it as a shared `worked_example` to every principle named in its **Principles applied** line. A principle with no matching block has `worked_example = none`. The authoring guide ("Adding custom principles") is documentation — not parsed.
 
 **Why per-type, not once-globally:** a session's `prompt_type` changes between prompts (a code edit, then a conceptual question). Caching one fixed list would serve the wrong pool after a switch. Caching *per file* keeps every run correct — it rebuilds `principles_list = global base ∪ rows for this run's type` from cache — while still reading each file only once. A code→question→code session reads `global` once, `code` once, `question` once; the second code prompt reads nothing.
 
@@ -174,7 +172,11 @@ Rank subtractive matches above additive matches — remove noise before adding s
 
 ## Step 5 — Rewrite prompt
 
-Apply each principle in `selected_principles` to the raw prompt. Each principle's effect must be visible in the rewrite. For each, use the row **Exemplar** and, when present, the parsed **worked_example** as patterns for how the change should look — adapt them to this prompt, never copy verbatim. Do not add filler. Produce:
+Apply each principle in `selected_principles` to the raw prompt. Each principle's effect must be visible in the rewrite. For each, use the row **Exemplar** as a pattern, and use the **Worked examples** context (loaded in Step 3) as additional before→after reference showing principles in combination. Adapt to this prompt; never copy verbatim. Do not add filler.
+
+**Anti-fabrication invariant:** Never introduce facts, numbers, names, frameworks, or constraints the raw prompt did not supply. If a principle requires context the user hasn't given (e.g. Context priming on a vague "why is it slow?"), surface the gap as a placeholder — `[your framework]`, `[describe the component]` — rather than inventing it. A prompt that exposes its own gaps is more useful than one that silently fills them with fiction.
+
+Produce:
 - `enhanced_prompt` — the rewritten prompt as plain text
 - `rationale_table` — one row per principle: `Principle | Why applied`
 
