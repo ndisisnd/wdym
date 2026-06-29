@@ -9,15 +9,8 @@ User types a prompt and submits
 ┌─────────────────────────────────────────────────────────────────┐
 │  UserPromptSubmit Hook  (prompt-detect.py — deterministic)      │
 │                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Passthrough check                                       │   │
-│  │  • starts with "/"  → verdict: global                   │   │
-│  │  │ ≤ 5 words        → verdict: global                   │   │
-│  │  └ follow-up phrase → verdict: global                   │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                    │                                            │
-│                    ▼                                            │
 │  Score prompt against categories.json (keyword/regex)          │
+│  Flag passthrough (slash/≤5 words/follow-up) in telemetry      │
 │  Emit <prompt-detect> block: verdict + scores + candidates      │
 │  Append src:"hook" line → telemetry.jsonl                       │
 └─────────────────────────────────────────────────────────────────┘
@@ -32,7 +25,7 @@ User types a prompt and submits
 │  Step 0.5  Self-check against manifest.json                    │
 │          │ Heal missing / corrupt files silently                │
 │          ▼                                                      │
-│  Step 1    Re-check passthrough conditions                     │
+│  Step 1    Check passthrough conditions                        │
 │          │                                                      │
 │          ├── passthrough ──────────────────────────────────────►│ (no-op, terminate)
 │          │                                                      │
@@ -91,7 +84,7 @@ wdym/
     ├── categories.json             Type taxonomy (user-editable)
     ├── categories.default.json     Pristine restore copy
     └── principles/
-        ├── principles-global.md    17 universal principles (always loaded)
+        ├── principles-global.md    21 universal principles (always loaded)
         ├── principles-code.md      Code-specific principles
         ├── principles-question.md  Question-specific principles
         └── principles-text-gen.md  Text-gen principles

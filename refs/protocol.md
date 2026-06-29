@@ -67,11 +67,11 @@ Otherwise, read the resolved pref file and parse its `mode` key into `run_mode` 
 Then check the raw prompt for mode directives (anywhere in the text):
 
 - **`--set-mode` present** → this is an explicit mode-management command (e.g. `/wdym --set-mode --flash`). Read the target from the accompanying `--flash` or `--comprehensive` token, write `{"mode": "<target>"}` to the pref file, emit `Run mode set to <target>.`, and **terminate immediately** — do not continue to Step 1, do not enhance any prompt. If neither `--flash` nor `--comprehensive` accompanies `--set-mode`, emit the current `run_mode` and ask the user which mode to set, then terminate.
-- **`--flash` present (without `--set-mode`)** → set `run_mode = flash`, **persist** it by writing `{"mode": "flash"}` to the pref file, strip the flag, and continue.
-- **`--comprehensive` present (without `--set-mode`)** → set `run_mode = comprehensive`, **persist** it by writing `{"mode": "comprehensive"}` to the pref file, strip the flag, and continue.
+- **`--flash` present (without `--set-mode`)** → set `run_mode = flash`, **persist** it by writing `{"mode": "flash"}` to the pref file, strip the flag, emit `Run mode: flash (persisted).`, and continue.
+- **`--comprehensive` present (without `--set-mode`)** → set `run_mode = comprehensive`, **persist** it by writing `{"mode": "comprehensive"}` to the pref file, strip the flag, emit `Run mode: comprehensive (persisted).`, and continue.
 - **None present** → keep the `run_mode` read from the pref file.
 
-A switch directive changes the stored preference permanently — every subsequent run uses it until switched again. Cache `run_mode` for the session. Emit `Run mode: <run_mode>` then continue to Step 1.
+A switch directive changes the stored preference permanently — every subsequent run uses it until switched again. Cache `run_mode` for the session. Continue to Step 1.
 
 | `run_mode` | Behaviour |
 |------------|-----------|
@@ -227,7 +227,7 @@ Fill the placeholders from this run's cached variables:
 - `<run_mode>` — `comprehensive` · `flash` (Step 0)
 - `<outcome>` — `run` (enhanced prompt submitted) · `terminated` (rejected/terminated before running)
 
-The append is **best-effort**: if the directory is missing or the write fails, ignore it and end normally — telemetry must never block or alter a run. Produce no user-facing output beyond the `Step 8/8` marker.
+The append is **best-effort**: if the directory is missing or the write fails, ignore it and end normally — telemetry must never block or alter a run. Produce no user-facing output.
 
 ## Telemetry
 
