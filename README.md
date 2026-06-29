@@ -78,4 +78,4 @@ Local always wins over global when both exist, so you can run it globally and st
 
 ---
 
-_Dedicated to my love Joan Chiang who runs 10x more prompts than I do._
+_Dedicated to my love JC who runs 10x more prompts than I do._
