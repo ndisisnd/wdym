@@ -23,12 +23,17 @@ mirror it for reading; if they ever disagree, `categories.json` wins.
 
 A `UserPromptSubmit` hook (`hooks/prompt-detect.py`) scores the prompt against
 `refs/categories.json` and injects a `<prompt-detect source="hook">` block into
-context. **When that block is present, trust it instead of re-scoring:**
+context. The hook **suppresses the block entirely for passthrough prompts**
+(slash / ≤5 words / follow-up), so a present block always means a substantive
+prompt. **When the block is present, trust it instead of re-scoring:**
 
 - `verdict: clear` → adopt its `prompt_type` and `mode` verbatim. **Skip to Output.**
 - `verdict: global` → `prompt_type = none`, `mode = global`. **Skip to Output.**
-- `verdict: ambiguous` → the scorer found no clear winner. Adjudicate **only among
-  its `candidates`** (or all types if `candidates: none`) using Step 2 below. The
+  The hook emits this both for the `--global` flag and for **zero-signal
+  prompts** (all scores 0) — zero signal is itself a deterministic verdict.
+- `verdict: ambiguous` → competing signals the scorer cannot separate.
+  Adjudicate **only among its `candidates`** (or all types if
+  `candidates: none`, emitted by older hook versions) using Step 2 below. The
   scorer's `scores:` line is your prior. **Skip Step 1.**
 - `verdict: degraded` → the hook ran but its config (`categories.json`) is unusable,
   so it produced no scores. Honour `global_flag: true` (→ `mode = global`, skip to
@@ -63,15 +68,20 @@ ignores any domain signals. Use it when the user wants generic prompt hygiene on
 
 ### Resolution algorithm
 
+The thresholds live in `refs/categories.json` → `threshold` (`min_score`,
+`min_lead`) — the values below are its defaults; if a user has edited the JSON,
+the JSON wins (it is the single source of truth for hook and LLM path alike).
+
 1. For each type, count the number of **distinct** signal cues matched in the raw prompt → `score[type]`.
 2. Let `winner` be the highest-scoring type and `runner_up` the second-highest.
-3. A type is **clear** when:
-   - `score[winner] >= 2`, **and**
-   - `score[winner] - score[runner_up] >= 1` (a strict lead, no ties).
+3. A type is **clear** when either:
+   - `score[winner] >= min_score` (default 2) **and** `score[winner] - score[runner_up] >= min_lead` (default 1), **or**
+   - `score[winner] >= 1` and every other type scored 0 — a single cue with **zero competitors** is unambiguous.
 4. If clear → `prompt_type = winner`, `mode = typed:<winner>`.
-   Otherwise → `prompt_type = none`, `mode = global`.
+   If every type scored 0 → `prompt_type = none`, `mode = global` (zero signal is deterministic).
+   Otherwise (competing non-zero scores with no clear winner) → judge the tied leaders on intent; if still genuinely mixed, fall back to `prompt_type = none`, `mode = global`.
 
-Ties and weak signals always fall back to `global`. Never guess a type on a single cue.
+On the manual LLM path you may also read intent the keyword cues miss — a prompt that plainly asks for code is `code` even if no listed cue matches. Ties between competing signals fall back to `global` rather than guessing.
 
 ### Tie-breakers for overlapping signals
 
@@ -81,10 +91,7 @@ Ties and weak signals always fall back to `global`. Never guess a type on a sing
 
 ## Output
 
-Emit one line before handing back to the protocol:
-
-```
-Detected: prompt_type=<type> · mode=<mode>
-```
-
-Then proceed to protocol Step 3 with `mode` resolved.
+Cache `prompt_type` and `mode` for the session and proceed to protocol Step 3.
+Do **not** emit a user-visible line — the happy path stays quiet (see the
+protocol preamble: visible output is limited to the self-check repair line and
+the Step 6 presentation block).

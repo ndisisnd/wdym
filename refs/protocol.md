@@ -21,6 +21,8 @@ Use the first that exists — a local pref overrides a global one. Throughout th
 
 First, check the raw prompt for the **`--init`** directive (anywhere in the text): if present, run `refs/init.md` end-to-end to bootstrap the skill (it asks the user for local vs. global scope), then **terminate** — do not continue to Step 1, do not enhance any prompt.
 
+For the other explicit command paths below (`--help`, `--status`, `--set-mode`), run the **Step 0.5 self-check first**, then execute the command and terminate. An explicit `/wdym` command is exactly when the user is inspecting the skill — a wounded install should be sensed and reported then, not deferred to the next substantive prompt.
+
 Next, check for the **`--help`** directive (anywhere in the text): if present, print the following block verbatim inside a fenced code block, then **terminate** — do not continue to Step 1, do not enhance any prompt:
 
 ```
@@ -47,7 +49,8 @@ INLINE FLAGS  (drop anywhere in a prompt)
 
 RUN MODES
 ────────────────────────────────────────────────────────────────────
-  comprehensive  (default)           Shows original → rationale → enhanced; asks to approve
+  comprehensive  (default)           Shows original → rationale → enhanced; one gate:
+                                     run enhanced / run original / edit
   flash                              Rewrites and fires immediately — no gate
 
 PROMPT TYPES  (auto-detected)
@@ -75,8 +78,8 @@ A switch directive changes the stored preference permanently — every subsequen
 
 | `run_mode` | Behaviour |
 |------------|-----------|
-| `comprehensive` (default) | Runs Steps 6 and 7: presents the enhanced prompt for approval, then asks whether to run it. |
-| `flash` | Skips the approval gate (Step 6) and the run/terminate gate (Step 7): rewrites and immediately submits the enhanced prompt. |
+| `comprehensive` (default) | Runs the Step 6 gate: presents the enhanced prompt and asks Run enhanced / Run original / Edit. |
+| `flash` | Skips the Step 6 gate entirely: rewrites and immediately submits the enhanced prompt at Step 7. |
 
 This step is the preference scan and does not count toward the `Step X/8` numbering.
 
@@ -128,6 +131,8 @@ This step does not count toward the `Step X/8` numbering.
 
 ## Step 1 — Classify prompt
 
+The hook suppresses its `<prompt-detect>` block for passthrough prompts, so when a block is present in context this step is already decided — the prompt is substantive; skip to Step 2. This step is the **no-hook fallback** (hook disabled or failed).
+
 Read the raw prompt from the `UserPromptSubmit` payload. Check three passthrough conditions in order:
 - (a) Prompt starts with `/`
 - (b) Word count is ≤5
@@ -141,7 +146,7 @@ Run `refs/detect.md` end-to-end against the raw prompt. It:
 - handles the `--global` flag (forces `mode = global`, strips the flag), and otherwise
 - scores the type taxonomy and resolves a clear winner or falls back to `none`.
 
-It first checks for a `<prompt-detect source="hook">` block (the deterministic pre-scorer) and adopts its verdict when `clear`/`global`, adjudicating only when `ambiguous`. Produce two variables: `prompt_type` (`code` · `question` · `text-gen` · `none`) and `mode` (`global` · `typed:<prompt_type>`). Emit the `Detected: …` line defined by the protocol. Cache both for the session.
+It first checks for a `<prompt-detect source="hook">` block (the deterministic pre-scorer) and adopts its verdict when `clear`/`global`, adjudicating only when `ambiguous`. Produce two variables: `prompt_type` (`code` · `question` · `text-gen` · `none`) and `mode` (`global` · `typed:<prompt_type>`). Cache both for the session; emit nothing — the happy path stays quiet.
 
 ## Step 3 — Load principles
 
@@ -176,44 +181,48 @@ Apply each principle in `selected_principles` to the raw prompt. Each principle'
 
 **Anti-fabrication invariant:** Never introduce facts, numbers, names, frameworks, or constraints the raw prompt did not supply. If a principle requires context the user hasn't given (e.g. Context priming on a vague "why is it slow?"), surface the gap as a placeholder — `[your framework]`, `[describe the component]` — rather than inventing it. A prompt that exposes its own gaps is more useful than one that silently fills them with fiction.
 
+**Flash-mode corollary:** In flash mode the enhanced prompt runs immediately — there is no gate where the user could fill a placeholder, so a placeholder would execute as-is and corrupt the run. In flash mode, **never emit placeholders**: a principle that needs context the user didn't supply is skipped (pick the next-best applicable principle), or applied only to the extent the prompt already supports. Placeholders are a comprehensive-mode device.
+
 Produce:
 - `enhanced_prompt` — the rewritten prompt as plain text
 - `rationale_table` — one row per principle: `Principle | Why applied`
 
-## Step 6 — Present for approval
+## Step 6 — Present & gate
 
-**Flash mode (`run_mode = flash`):** skip this step entirely — produce no approval gate — and go straight to Step 7.
+**Flash mode (`run_mode = flash`):** skip this step entirely — produce no gate — and go straight to Step 7 with `chosen_prompt = enhanced_prompt`.
 
 **Comprehensive mode (`run_mode = comprehensive`):** display to the user in this order:
 1. `**Original:**` followed by the raw prompt in a blockquote
 2. `rationale_table` (markdown table)
 3. `**Enhanced:**` followed by `enhanced_prompt` in a blockquote
 
-Call `AskUserQuestion` with options: `Approve`, `Reject`.
-On `Reject` → emit the **flash-mode hint** (see Step 7), then terminate.
-On `Approve` → proceed to Step 7.
+Call `AskUserQuestion` **once** with three options:
 
-## Step 7 — Run
+| Option | Effect | `chosen_prompt` | `outcome` |
+|--------|--------|-----------------|-----------|
+| `Run enhanced prompt` | Accept the rewrite | `enhanced_prompt` | `run` |
+| `Run original prompt` | Decline the rewrite but still answer — the user's request is never dead-ended | `raw_prompt` | `run_original` |
+| `Edit enhanced prompt` | User supplies changes (via the option's note or "Other" free text); apply them | the edited prompt | `edited` |
 
-**Flash mode (`run_mode = flash`):** submit `enhanced_prompt` as the active prompt immediately — no `AskUserQuestion`. Terminate.
-
-**Comprehensive mode (`run_mode = comprehensive`):** call `AskUserQuestion` with options: `Run enhanced prompt`, `Terminate session`.
-On `Terminate session` → emit the flash-mode hint (below), then exit.
-On `Run enhanced prompt` → submit `enhanced_prompt` as the active prompt. Terminate.
+If the user cancels via "Other" (e.g. "stop", "don't run anything") → set `outcome = terminated`, emit the **flash-mode hint** below, and skip to Step 8 without running anything.
 
 ### Flash-mode hint (comprehensive mode only)
 
-Whenever a `comprehensive`-mode session ends in **terminate** (a `Reject` at Step 6 or a `Terminate session` at Step 7), emit this line to the terminal before exiting, verbatim:
+When a comprehensive-mode session ends with `outcome = terminated`, emit this line verbatim before exiting:
 
 ```
 Want to automatically transform your prompts without approval? Set to flash mode instead by running "/wdym --set-mode --flash"
 ```
 
-Emit it only on terminate, only in comprehensive mode — never in flash mode, and never when the user chose to run the enhanced prompt.
+Emit it only on terminate, only in comprehensive mode — never in flash mode, and never when any prompt (enhanced, edited, or original) was run.
+
+## Step 7 — Run
+
+Submit `chosen_prompt` as the active prompt. In flash mode this is always `enhanced_prompt`, immediately and with no gate; in comprehensive mode it is whatever Step 6 resolved. Then proceed to Step 8.
 
 ## Step 8 — Record telemetry
 
-The **final** action of every substantive run — one that reached the rewrite (Step 5). It fires at **all** exits in **both** modes: after Step 7 submits the enhanced prompt, after a Step 6 `Reject`, and after a Step 7 `Terminate session`. When a flash-mode hint is emitted, log telemetry **after** it. Passthrough exits (Step 1) are **not** logged here — the hook already records those deterministically, so logging them again would double-count.
+The **final** action of every substantive run — one that reached the rewrite (Step 5). It fires at **all** exits in **both** modes: after Step 7 submits the chosen prompt, and after a Step 6 cancel (`outcome = terminated`). When a flash-mode hint is emitted, log telemetry **after** it. Passthrough exits (Step 1) are **not** logged here — the hook already records those deterministically, so logging them again would double-count.
 
 This is the `skill` half of the hybrid telemetry stream (the hook writes the `src:"hook"` half). Append exactly one line to `<wdym_dir>/telemetry.jsonl`, where `<wdym_dir>` is the directory of the pref file resolved in Step 0 (local `.claude/wdym/`, else global `~/.claude/wdym/`). Use a single Bash append so it is one atomic write with no read-modify-write:
 
@@ -225,7 +234,7 @@ Fill the placeholders from this run's cached variables:
 - `<prompt_type>` — `code` · `question` · `text-gen` · `none` (Step 2)
 - `<mode>` — `global` · `typed:<prompt_type>` (Step 2). A `global` row is a **pure global run** — the "exception" metric.
 - `<run_mode>` — `comprehensive` · `flash` (Step 0)
-- `<outcome>` — `run` (enhanced prompt submitted) · `terminated` (rejected/terminated before running)
+- `<outcome>` — `run` (enhanced prompt submitted) · `run_original` (rewrite declined, original submitted) · `edited` (user-edited rewrite submitted) · `terminated` (cancelled before running anything)
 
 The append is **best-effort**: if the directory is missing or the write fails, ignore it and end normally — telemetry must never block or alter a run. Produce no user-facing output.
 

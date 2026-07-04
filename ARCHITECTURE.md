@@ -9,10 +9,13 @@ User types a prompt and submits
 ┌─────────────────────────────────────────────────────────────────┐
 │  UserPromptSubmit Hook  (prompt-detect.py — deterministic)      │
 │                                                                 │
-│  Score prompt against categories.json (keyword/regex)          │
-│  Flag passthrough (slash/≤5 words/follow-up) in telemetry      │
-│  Emit <prompt-detect> block: verdict + scores + candidates      │
-│  Append src:"hook" line → telemetry.jsonl                       │
+│  Passthrough (slash/≤5 words/follow-up)?                        │
+│    → NO block emitted; telemetry line only. Prompt runs as-is.  │
+│  Otherwise:                                                     │
+│    Score prompt against categories.json (keyword/regex)         │
+│    Emit <prompt-detect> block: verdict + scores + candidates    │
+│    Block ends with ACTION line → model invokes the wdym skill   │
+│    Append src:"hook" line → telemetry.jsonl                     │
 └─────────────────────────────────────────────────────────────────┘
              │
              ▼
@@ -25,15 +28,16 @@ User types a prompt and submits
 │  Step 0.5  Self-check against manifest.json                    │
 │          │ Heal missing / corrupt files silently                │
 │          ▼                                                      │
-│  Step 1    Check passthrough conditions                        │
-│          │                                                      │
+│  Step 1    Passthrough check (no-hook fallback only —           │
+│          │ block present ⇒ substantive, skip to Step 2)         │
 │          ├── passthrough ──────────────────────────────────────►│ (no-op, terminate)
 │          │                                                      │
 │          ▼                                                      │
 │  Step 2    Classify prompt type                                │
 │          │ Read <prompt-detect> verdict from hook               │
 │          │ • clear    → trust directly                          │
-│          │ • ambiguous→ adjudicate among candidates             │
+│          │ • global   → universal base (zero signal / --global) │
+│          │ • ambiguous→ adjudicate among tied candidates        │
 │          │ • degraded → run manual LLM algorithm                │
 │          │ Output: prompt_type (code|question|                  │
 │          │         text-gen|none) + mode                        │
@@ -50,14 +54,15 @@ User types a prompt and submits
 │          ▼                                                      │
 │  Step 6    [comprehensive mode only]                           │
 │          │ Show original → rationale → enhanced                 │
-│          │ AskUserQuestion: Approve | Reject                    │
+│          │ AskUserQuestion (single gate):                       │
+│          │   Run enhanced | Run original | Edit                 │
 │          │                                                      │
-│          ├── Reject ──────────────────────────────────────────►│ (terminate)
+│          ├── cancel (via "Other") ────────────────────────────►│ (terminate + hint)
 │          │                                                      │
 │          ▼                                                      │
-│  Step 7    Submit enhanced_prompt                              │
-│          │ Flash: immediate                                      │
-│          │ Comprehensive: Run | Terminate                        │
+│  Step 7    Submit chosen prompt                                │
+│          │ Flash: enhanced, immediately (no placeholders)       │
+│          │ Comprehensive: whatever the gate resolved            │
 │          ▼                                                      │
 │  Step 8    Append src:"skill" line → telemetry.jsonl          │
 └─────────────────────────────────────────────────────────────────┘
@@ -76,6 +81,8 @@ wdym/
 ├── hooks/
 │   ├── prompt-detect.py            UserPromptSubmit pre-scorer
 │   └── telemetry-stats.py          --status report renderer
+├── tests/
+│   └── detect_bench.py             Detection regression bench (expected verdicts)
 └── refs/
     ├── protocol.md                 Step-by-step reference
     ├── detect.md                   Type detection algorithm
@@ -93,10 +100,10 @@ wdym/
 
 ## Run Modes
 
-| Mode          | Step 6 (approval) | Step 7 (submit)     |
-|---------------|--------------------|---------------------|
-| comprehensive | Show diff, ask     | Ask Run / Terminate |
-| flash         | Skipped            | Immediate           |
+| Mode          | Step 6 (gate)                              | Step 7 (submit)          |
+|---------------|--------------------------------------------|--------------------------|
+| comprehensive | Run enhanced · Run original · Edit         | Whatever the gate chose  |
+| flash         | Skipped                                    | Enhanced, immediate      |
 
 Switch with `/wdym --set-mode --flash` or `/wdym --set-mode --comprehensive`. Persisted in `pref.json`.
 
@@ -121,6 +128,10 @@ The hook scores the prompt against every category in `categories.json` and resol
 
 When one or more categories are forced, forced resolution applies: the top-scoring forced category wins **only if its score ≥ the top non-forced category score**. If a non-forced category outscores all forced ones, the forced signal is overridden and normal threshold scoring (Tier 3) takes over. This prevents a weak interrogative match from hijacking a clearly code or text-gen prompt.
 
-**Tier 3 — threshold scoring.** Winner must reach `min_score` (default 2) with a lead of at least `min_lead` (default 1) over the runner-up. Ties or weak signals fall back to `verdict: ambiguous`.
+**Tier 3 — threshold scoring.** Four deterministic outcomes:
+1. Winner reaches `min_score` (default 2) with a `min_lead` (default 1) margin → `verdict: clear`.
+2. Winner has any signal (≥1) and every other category scored 0 → `verdict: clear` — a single cue with zero competitors is unambiguous.
+3. All categories scored 0 → `verdict: global` — zero signal deterministically falls back to the universal base.
+4. Competing non-zero scores with no clear winner → `verdict: ambiguous`, tied leaders listed as `candidates` for LLM adjudication. This is the only non-deterministic path (~5% of realistic prompts; see `tests/detect_bench.py`).
 
 The `question` category uses two `force_regex` patterns — `^(is|are|do|does|did|should|will|...)\\b` and `\\?\\s*$` — with the full negative list (`write`, `draft`, `function`, `summarize`, …) acting as the cancellation guard. `can`/`could`/`would` are intentionally excluded from the interrogative pattern because they double as polite-request starters for code and text-gen tasks.

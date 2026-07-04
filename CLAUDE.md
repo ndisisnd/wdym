@@ -1,8 +1,6 @@
 # wdym Auto-Invoke
 
-When your context contains a `<prompt-detect>` block injected by the UserPromptSubmit hook:
+The hook's `<prompt-detect>` block now carries its own ACTION line instructing invocation, and it is suppressed entirely for passthrough prompts. This file restates the contract as defense-in-depth:
 
-- **`verdict: clear` or `verdict: ambiguous`** — invoke the `wdym` skill via the Skill tool **before** processing the user's prompt.
-- **`verdict: global`** — invoke `wdym` with `--global`.
-- **`verdict: degraded`** — invoke `wdym` (self-check will heal the config).
-- **Passthrough signals** (`verdict` absent, prompt is a slash command, ≤5 words, or conversational follow-up) — respond normally; do not invoke wdym.
+- **`<prompt-detect>` block present** (any verdict: `clear`, `ambiguous`, `global`, `degraded`) — invoke the `wdym` skill via the Skill tool **before** processing the user's prompt. A `global` verdict means detection resolved to the universal base (the skill handles it; no flag needed).
+- **No block** — the prompt is passthrough (slash command, ≤5 words, or conversational follow-up) or the hook is not installed; respond normally, do not invoke wdym.

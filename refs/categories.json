@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "description": "Single source of truth for prompt-type detection. Consumed by hooks/prompt-detect.py (deterministic pre-scorer) and referenced by refs/detect.md (LLM adjudication). Categories are mutually exclusive; cues are curated to minimise cross-category overlap.",
   "threshold": { "min_score": 2, "min_lead": 1 },
   "categories": [
@@ -13,6 +13,12 @@
         "bug", "stack trace", "traceback", "exception", "refactor", "implement",
         "sql", "algorithm", "unit test", "async", "await", "import", "module",
         "dependency", "npm", "pip", "regex", "deploy", "runtime",
+        "code", "fix", "error", "test", "tests", "build", "lint", "typecheck",
+        "crash", "broken", "failing", "file", "repo", "repository", "branch",
+        "commit", "component", "endpoint", "database", "schema", "migrate",
+        "migration", "config", "script", "cli", "terminal", "install",
+        "package", "library", "framework", "backend", "frontend", "server",
+        "readme", "review", "typeerror", "undefined",
         "python", "javascript", "typescript", "rust", "golang", "java", "c++",
         "c#", "ruby", "php", "swift", "kotlin", "bash",
         "react", "vue", "angular", "svelte", "django", "flask", "fastapi",
@@ -20,7 +26,8 @@
         "pytorch", "tensorflow"
       ],
       "phrases": [
-        "write a function", "write code", "fix this code", "throws an error"
+        "write a function", "write code", "fix this code", "throws an error",
+        "not working", "doesn't work"
       ],
       "force_regex": [
         "```",
@@ -36,6 +43,7 @@
       "keywords": [
         "explain", "define", "definition", "difference between", "compare",
         "meaning of", "what is", "what are", "how does", "how do", "why does",
+        "why is", "why are", "should i", "should we", "when should", "how can",
         "is it true", "pros and cons", "tell me about"
       ],
       "phrases": [],
@@ -58,7 +66,8 @@
         "reword", "paraphrase", "proofread", "draft", "email", "essay",
         "blog post", "article", "caption", "headline", "tagline", "slogan",
         "shorten", "condense", "expand", "bullet points", "cover letter",
-        "press release", "outline", "copywriting", "product description"
+        "press release", "outline", "copywriting", "product description",
+        "paragraph", "reply", "message"
       ],
       "phrases": [
         "rewrite this", "summarize this", "translate this", "draft an email",

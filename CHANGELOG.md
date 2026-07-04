@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-07-04
+
+Robustness overhaul closing the gap between "fires on every prompt" and reality. The hook's `<prompt-detect>` block now ends with an explicit **ACTION line** instructing the model to invoke the skill — invocation no longer depends on a per-project CLAUDE.md rule — and the block is **suppressed entirely for passthrough prompts** (slash / ≤5 words / follow-ups), making block-present ⇒ invoke a binary contract. Detection was overhauled from 30% to **95% deterministic** on realistic prompts: ~45 new cues across all three categories (the literal word "code" was previously not a cue), a single-cue-with-zero-competitors rule resolves `clear`, zero-signal prompts resolve `global` deterministically, and the hook now agrees with `detect.md`'s fallback semantics (thresholds also defer to `categories.json` on the LLM path). A new 23-case regression bench (`tests/detect_bench.py`) guards the rate.
+
+Comprehensive mode's double gate (Approve/Reject → Run/Terminate) collapsed into a single 3-way gate — **run enhanced · run original · edit** — so rejecting a rewrite never dead-ends the user's request; the telemetry outcome enum grew to `run / run_original / edited / terminated`. Flash mode now **never emits placeholders** (nothing would fill them before the rewrite runs). The Step 0.5 self-check also runs on explicit `--status`/`--help`/`--set-mode` paths, exactly when a user is inspecting a wounded install. The code principles gained **Verification & done criteria** (state how to confirm the change worked — the highest-leverage addition for agentic use); chain-of-thought was narrowed and demoted (modern models reason internally); the always-loaded worked examples were trimmed 17 → 5, cutting a recurring per-session token tax. Fixes: `allowed-tools` frontmatter key (underscore variant was silently ignored), dropped the inert `model:` pin, removed the repo-local hook that double-fired (and double-counted telemetry) alongside a global install, and `install.sh` now skips its copy phase when the target is a symlink (dev installs).
+
 ## 2026-06-27 (2)
 
 Add dedication line to README and drop "(prompt-engineer)" qualifier from the install script banner text. Cosmetic only — no behaviour changes.

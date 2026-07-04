@@ -75,6 +75,11 @@ fi
 info "all required source files present"
 
 # --- Install -----------------------------------------------------------------
+# Dev installs symlink the skills dir straight at this repo. Copying onto the
+# symlink would rsync the tree onto itself — skip the copy, keep the init steps.
+if [[ -L "$TARGET_DIR" ]]; then
+  info "target is a symlink (dev install) — source and target are the same tree; skipping copy"
+else
 mkdir -p "$TARGET_DIR"
 
 # Copy the curated set: root docs/config, plus the refs/, hooks/, asset/ trees.
@@ -108,6 +113,7 @@ else
   find "$TARGET_DIR" -name '.DS_Store' -delete 2>/dev/null || true
 fi
 info "skill files copied"
+fi  # end symlink guard
 
 # Copy pref.json only on a fresh install — preserve any existing user prefs.
 if [[ -f "$TARGET_DIR/pref.json" ]]; then

@@ -38,11 +38,11 @@ wdym --init
 
 Just write and `wdym` will translate it for you.
 
-1. **Catches it** — a `UserPromptSubmit` hook intercepts the prompt. Slash commands, tiny ≤5-word prompts, and "thanks"/"ok"/"continue"-style follow-ups get waved straight through untouched. No ceremony for small talk.
-2. **Figures out what you meant** — classifies the prompt as `code`, `question`, `text-gen`, or `none`.
+1. **Catches it** — a `UserPromptSubmit` hook intercepts the prompt. Slash commands, tiny ≤5-word prompts, and "thanks"/"ok"/"continue"-style follow-ups get waved straight through untouched — the hook doesn't even emit its context block for those. No ceremony for small talk.
+2. **Figures out what you meant** — classifies the prompt as `code`, `question`, `text-gen`, or `none`. ~95% of real prompts resolve deterministically in the hook (zero tokens, regression-tested in `tests/detect_bench.py`); only genuinely mixed signals go to the LLM to adjudicate.
 3. **Loads the right playbook** — pulls the global principles plus the ones specific to your prompt type, then picks the top 2–3 that actually apply. It strips noise (politeness, threats, bribes, hedging) _before_ it adds structure (specificity, goals, format).
 4. **Rewrites it** — turns your blabber into something your LLM can actually chew on, and shows you _why_ each change was made.
-5. **Ships it** — in **comprehensive** mode it shows you the before/after and waits for your nod; in **flash** mode it just sends the polished version and gets out of the way.
+5. **Ships it** — in **comprehensive** mode it shows you the before/after and gives you one choice: run the enhanced version, run your original untouched, or edit the rewrite first. Your prompt always runs — rejecting the glow-up never eats your question. In **flash** mode it just sends the polished version and gets out of the way.
 
 That's it. You write like a human, your LLM reads like it's being respected.
 
@@ -67,8 +67,8 @@ Local always wins over global when both exist, so you can run it globally and st
 
 | Mode / Flag | What it does |
 |---|---|
-| `comprehensive` _(default)_ | Shows you the original, the rationale, and the enhanced prompt — then waits for your approval before running. Cautious by design. |
-| `flash` | Skips the approval gate entirely. Rewrites your prompt and fires it off immediately. For when you trust the glow-up. |
+| `comprehensive` _(default)_ | Shows you the original, the rationale, and the enhanced prompt — then one 3-way gate: **run enhanced · run original · edit**. Cautious by design, but your prompt always runs. |
+| `flash` | Skips the gate entirely. Rewrites your prompt and fires it off immediately — and never inserts `[fill-this-in]` placeholders, since nothing would fill them. For when you trust the glow-up. |
 | `--comprehensive` / `--flash` | Permanently switches your stored run mode and continues with this run. |
 | `--set-mode --flash` / `--set-mode --comprehensive` | Switches the stored mode _without_ touching the current prompt — pure mode management, then exits. |
 | `--global` | Forces the universal principle base and skips type detection for this run. Good for one-off, type-agnostic prompts. |

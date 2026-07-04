@@ -13,6 +13,11 @@ instead of exiting silently — so the skill's self-check (protocol Step 0.5) ca
 tell "hook ran but config is broken" apart from "hook never ran" and heal the
 config. Only failures that leave nothing to report (bad stdin, empty prompt)
 exit 0 with no output.
+
+Passthrough prompts (slash command / <=5 words / conversational follow-up) get
+NO block at all — only a telemetry line. This makes the contract binary: block
+present => substantive prompt => the ACTION line in the block instructs the
+model to invoke the wdym skill. Block absent => respond normally.
 """
 
 import json
@@ -47,7 +52,9 @@ def is_passthrough(raw: str) -> bool:
     low = s.lower().rstrip(".!?").strip()
     if low in FOLLOWUP_EXACT:
         return True
-    if any(low == p or low.startswith(p + " ") for p in FOLLOWUP_PREFIXES):
+    # Prefix must end at a word boundary — "thanks, that works" matches,
+    # "also-ran analysis" does not ("also" is followed by a hyphenated word).
+    if any(re.match(rf"{re.escape(p)}([\s,!.:;]|$)", low) for p in FOLLOWUP_PREFIXES):
         return True
     return False
 
@@ -111,6 +118,34 @@ def is_forced(cat: dict, text: str) -> bool:
     return score_category(cat, text) > 0
 
 
+ACTION_LINE = (
+    'ACTION: invoke the "wdym" skill via the Skill tool BEFORE processing '
+    "this prompt."
+)
+
+
+def resolve_threshold(ranked, min_score, min_lead):
+    """Resolve (verdict, prompt_type, candidates) from ranked (id, score) pairs.
+
+    clear     — winner meets min_score with a min_lead margin, OR carries the
+                only signal present (single cue, zero competitors).
+    global    — no category scored at all: zero keyword signal is itself a
+                deterministic verdict (universal base), mirroring detect.md's
+                "weak signals fall back to global" rule.
+    ambiguous — competing signals the keyword scorer cannot separate; the
+                tied leaders are handed to the LLM as candidates.
+    """
+    win, win_s = ranked[0]
+    run_s = ranked[1][1] if len(ranked) > 1 else 0
+    if win_s >= min_score and (win_s - run_s) >= min_lead:
+        return "clear", win, []
+    if win_s >= 1 and run_s == 0:
+        return "clear", win, []
+    if win_s == 0:
+        return "global", "none", []
+    return "ambiguous", "none", [k for k, v in ranked if v == win_s]
+
+
 def emit_degraded(reason: str, global_flag: bool, raw: str = "") -> int:
     """Hook ran but its config is unusable. Report it so the skill can heal,
     while still honouring --global and never blocking the prompt."""
@@ -127,6 +162,7 @@ def emit_degraded(reason: str, global_flag: bool, raw: str = "") -> int:
         f"global_flag: {str(global_flag).lower()}",
         "note: deterministic scorer disabled — self-check should heal "
         "refs/categories.json; adjudicate this prompt per refs/detect.md",
+        ACTION_LINE,
         "</prompt-detect>",
     ]
     print(json.dumps({
@@ -146,6 +182,19 @@ def main() -> int:
 
     raw = payload.get("prompt", "")
     if not isinstance(raw, str) or not raw.strip():
+        return 0
+
+    # Passthrough prompts get no block — telemetry only. Block present is the
+    # binary invoke signal; suppressing it here keeps slash commands and small
+    # talk token-free and makes the skill's Step 1 a no-hook fallback only.
+    if is_passthrough(raw):
+        log_telemetry({
+            "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "src": "hook",
+            "verdict": "passthrough",
+            "type": "none",
+            "passthrough": True,
+        })
         return 0
 
     text = raw.lower()
@@ -192,20 +241,14 @@ def main() -> int:
             # A non-forced category outscores the forced one — fall through to
             # normal threshold scoring so the stronger signal wins.
             ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
-            win, win_s = ranked[0]
-            run_s = ranked[1][1] if len(ranked) > 1 else 0
-            if win_s >= min_score and (win_s - run_s) >= min_lead:
-                verdict, prompt_type = "clear", win
-            elif win_s >= min_score:
-                candidates = [k for k, v in ranked if v == win_s]
+            verdict, prompt_type, candidates = resolve_threshold(
+                ranked, min_score, min_lead
+            )
     else:
         ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
-        win, win_s = ranked[0]
-        run_s = ranked[1][1] if len(ranked) > 1 else 0
-        if win_s >= min_score and (win_s - run_s) >= min_lead:
-            verdict, prompt_type = "clear", win
-        elif win_s >= min_score:
-            candidates = [k for k, v in ranked if v == win_s]
+        verdict, prompt_type, candidates = resolve_threshold(
+            ranked, min_score, min_lead
+        )
 
     score_str = " ".join(f"{k}={v}" for k, v in scores.items())
     lines = [
@@ -222,6 +265,7 @@ def main() -> int:
     else:
         lines.append(f"candidates: {','.join(candidates) if candidates else 'none'}")
         lines.append("note: no clear winner — adjudicate per refs/detect.md")
+    lines.append(ACTION_LINE)
     lines.append("</prompt-detect>")
     context = "\n".join(lines)
 

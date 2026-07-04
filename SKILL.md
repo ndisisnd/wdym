@@ -22,8 +22,7 @@ description: >
   readable via the /wdym --status command, which renders a styled,
   RTK-gain-style report (totals, transform-rate meter, ranked by-type table).
   A --help flag lists all available commands, modes, and prompt types with one-liners.
-model: claude-sonnet-4-6
-allowed_tools:
+allowed-tools:
   - AskUserQuestion
   - Read
   - Write
@@ -48,7 +47,7 @@ allowed_tools:
 
 `prompt_type` ∈ `code` · `question` · `text-gen` · `none`.
 
-A `UserPromptSubmit` hook (`hooks/prompt-detect.py`) deterministically pre-scores the prompt against `refs/categories.json` and injects a `<prompt-detect>` block. The skill trusts a `clear`/`global` verdict and only adjudicates `ambiguous` cases — keeping the common path deterministic and token-free.
+A `UserPromptSubmit` hook (`hooks/prompt-detect.py`) deterministically pre-scores the prompt against `refs/categories.json` and injects a `<prompt-detect>` block. The block ends with an **ACTION line explicitly instructing the model to invoke this skill** — invocation does not depend on a per-project CLAUDE.md rule. Passthrough prompts (slash / ≤5 words / follow-ups) get **no block at all**, so block-present ⇒ invoke is a binary contract. The skill trusts a `clear`/`global` verdict and only adjudicates `ambiguous` cases (genuinely tied signals) — keeping the common path deterministic and token-free. Zero-signal prompts resolve deterministically to `global`; a single cue with zero competitors resolves `clear`.
 
 ## Install (`--init`)
 
@@ -67,8 +66,8 @@ The skill **scans the pref file first** (Step 0) to read the persistent run mode
 
 | Run mode | Stored as | Behaviour |
 |----------|-----------|-----------|
-| `comprehensive` | `{"mode": "comprehensive"}` | **Default.** Presents the transformed prompt for approval, then asks again whether to run it (Steps 6 → 7). |
-| `flash` | `{"mode": "flash"}` | Transforms the prompt and runs it immediately — no approval gate, no run prompt. |
+| `comprehensive` | `{"mode": "comprehensive"}` | **Default.** Presents the transformed prompt with a single 3-way gate (Step 6): Run enhanced · Run original · Edit. The original request is never dead-ended. |
+| `flash` | `{"mode": "flash"}` | Transforms the prompt and runs it immediately — no gate. Never emits placeholders (nothing would fill them). |
 
 The pref file persists the mode as a single key-value pair across sessions. Switch it permanently with:
 
@@ -77,7 +76,7 @@ The pref file persists the mode as a single key-value pair across sessions. Swit
 
 If the pref file is missing or unparseable, the skill defaults to `comprehensive` for the run (the file is created only by `--init`). The skill-root `pref.json` is the bundled default template init copies.
 
-When a comprehensive-mode session ends in **terminate** (Reject at Step 6 or Terminate at Step 7), the skill emits a one-line hint suggesting flash mode: `Want to automatically transform your prompts without approval? Set to flash mode instead by running "/wdym --set-mode --flash"`. The hint never fires in flash mode or when the user runs the enhanced prompt.
+When a comprehensive-mode session ends in **terminate** (the user cancels at the Step 6 gate without running anything), the skill emits a one-line hint suggesting flash mode: `Want to automatically transform your prompts without approval? Set to flash mode instead by running "/wdym --set-mode --flash"`. The hint never fires in flash mode or when any prompt — enhanced, edited, or original — was run.
 
 ## Inputs
 
@@ -97,12 +96,11 @@ When a comprehensive-mode session ends in **terminate** (Reject at Step 6 or Ter
 | mode | `global` / `typed:<prompt_type>` | Cached; selects the principle pool |
 | enhanced_prompt | Plain text string | Presented inline for user approval |
 | rationale_table | Markdown table, one row per principle | Shown alongside enhanced prompt |
-| approval_gate | `AskUserQuestion` dialog | User approves or rejects the rewrite |
-| run_choice | `AskUserQuestion` dialog | User runs the enhanced prompt or terminates |
+| gate | Single `AskUserQuestion` dialog (comprehensive only) | Run enhanced · Run original · Edit (cancel via "Other" terminates) |
 
 ## Step-by-step protocol
 
-Follow `refs/protocol.md` end-to-end. A preliminary Step 0 scans `pref.json` for the run mode and applies any `--flash` / `--comprehensive` switch (and handles `--init` and `--status`). A once-per-session Step 0.5 self-check then verifies the install against `refs/manifest.json` and heals any wound it safely can. The eight numbered steps are: classify prompt, detect prompt type, load principles, select top 2–3 principles, rewrite prompt, present for approval, run or terminate, record telemetry. Do not emit step markers during normal operation — keep the happy path clean; visible output is limited to any self-check repair line (Step 0.5) and the Original → rationale → Enhanced block (Step 6). In flash mode, Steps 6 and 7 collapse to an immediate run with no gates; Step 8 still records the run.
+Follow `refs/protocol.md` end-to-end. A preliminary Step 0 scans `pref.json` for the run mode and applies any `--flash` / `--comprehensive` switch (and handles `--init` and `--status`; explicit command paths run the self-check before terminating). A once-per-session Step 0.5 self-check then verifies the install against `refs/manifest.json` and heals any wound it safely can. The eight numbered steps are: classify prompt, detect prompt type, load principles, select top 2–3 principles, rewrite prompt, present with a single 3-way gate, run the chosen prompt, record telemetry. Do not emit step markers during normal operation — keep the happy path clean; visible output is limited to any self-check repair line (Step 0.5) and the Original → rationale → Enhanced block (Step 6). In flash mode, Step 6 is skipped and Step 7 runs the enhanced prompt immediately; Step 8 still records the run.
 
 ## Caching
 
@@ -139,7 +137,7 @@ The skill keeps a **local, append-only** usage log at `<wdym_dir>/telemetry.json
 | `src` | Written by | One line per | Records |
 |-------|------------|--------------|---------|
 | `hook` | `hooks/prompt-detect.py` (deterministic, zero-token) | **every** prompt submission | provisional `verdict`, `type`, and a `passthrough` flag (slash / ≤5 words / follow-up) |
-| `skill` | Protocol **Step 8** | every **substantive run** the skill transformed | final LLM-resolved `type`, `mode`, `run_mode`, and `outcome` (`run` / `terminated`) |
+| `skill` | Protocol **Step 8** | every **substantive run** the skill transformed | final LLM-resolved `type`, `mode`, `run_mode`, and `outcome` (`run` / `run_original` / `edited` / `terminated`) |
 
 The hook line is the deterministic ground truth for *how many prompts were seen*; the skill line is the accurate record of *what was actually transformed* — including how `ambiguous` prompts finally resolved, which the hook can't know. The file is created lazily on first write (never by `--init`), and both writers fail silent so telemetry can never block or alter a prompt.
 

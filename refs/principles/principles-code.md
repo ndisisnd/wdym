@@ -11,6 +11,7 @@ Loaded **on top of** the global base (`refs/principles/principles-global.md`) wh
 | Principle | Type | Description | When to apply | Exemplar |
 |-----------|------|-------------|---------------|----------|
 | Existing-code context | additive | Reference the surrounding code, framework, or file the change must fit. | Prompt says "it"/"this"/"the project" without showing the code | `fix the bug in it` → `Fix the off-by-one in the paginate() function below: …` |
+| Verification & done criteria | additive | State how to verify the change and what done looks like — tests pass, build green, behaviour observed. | A change is requested with no way to confirm it worked | `add rate limiting to the api` → `Add rate limiting to the API. Done = existing tests still pass and a burst of rapid requests returns 429.` |
 | I/O contract | additive | State inputs, outputs, types, and the function/CLI signature. | Shape of the interface is left open | `a function to sort users` → `def sort_users(users: list[User]) -> list[User] — sorted by signup date.` |
 | Edge cases & errors | additive | Require handling of empty/invalid/boundary inputs and the failure behaviour. | Prompt asks only for the happy path | `divide two numbers` → `Divide two numbers; raise ValueError on divide-by-zero and non-numeric input.` |
 | Language & version | additive | Name the language and runtime/version the code must target. | Language or version is unstated or implied | `parse a date` → `In Python 3.11, parse an ISO-8601 date string.` |
@@ -37,6 +38,16 @@ def paginate(items, page, page_size):
 ```
 
 **Principles applied:** Existing-code context (the actual function is shown), Specificity (names the exact symptom — last record dropped).
+
+---
+
+### Verification & done criteria
+
+**Before:** `add retry logic to the fetcher`
+
+**After:** `Add retry logic to the fetcher — exponential backoff, max 3 attempts. Done = the existing test suite still passes, plus a new test showing a transient failure succeeds on retry and a permanent failure surfaces after 3 attempts. Run the tests after the change.`
+
+**Principles applied:** Verification & done criteria (done = named observable outcomes, tests run after), Edge cases & errors (transient vs permanent failure behaviour).
 
 ---
 
