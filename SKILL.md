@@ -33,9 +33,9 @@ self-check first, execute the command, terminate; do not enhance a prompt). Inli
 `--flash` / `--comprehensive` / `--global` flags are handled within protocol Step 0/2.
 
 **Output discipline:** emit no step markers. Visible output is limited to the
-self-check repair line (Step 0.5, only when something was healed) and the
-Original → rationale → Enhanced block (Step 6, comprehensive mode only). Flash mode
-emits nothing extra.
+self-check repair line (Step 0.5, only when something was healed) and the rewritten
+prompt alone (Step 6, comprehensive mode only) — never the original prompt or the
+principles/rationale behind the rewrite. Flash mode emits nothing extra.
 
 ## Run modes
 
@@ -45,7 +45,7 @@ local pref overrides a global one. Missing/unparseable → default `comprehensiv
 
 | Run mode | Behaviour |
 |----------|-----------|
-| `comprehensive` (default) | Presents original → rationale → enhanced, then one gate: run enhanced · run original · edit. The request is never dead-ended. |
+| `comprehensive` (default) | Presents only the rewritten prompt (no original, no rationale), then one gate: run enhanced · run original · edit. The request is never dead-ended. |
 | `flash` | Rewrites and runs immediately — no gate, no placeholders. |
 
 Switch permanently with `/wdym --set-mode --flash` (or `--comprehensive`), or an

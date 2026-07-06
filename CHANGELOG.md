@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-07-06 (2)
+
+Comprehensive mode now emits **only the rewritten prompt** — the original prompt and the principle rationale are no longer shown. Protocol Step 6 previously displayed an `Original → rationale_table → Enhanced` block; it now renders `enhanced_prompt` alone in a blockquote, and Step 5 stops building the user-facing `rationale_table` (the selected principles and reasoning stay internal). The three-way approval gate (run enhanced · run original · edit) is unchanged, and flash mode was already silent. Updated `SKILL.md` (output-discipline paragraph + comprehensive row of the run-modes table) and `refs/help.txt` to describe the leaner output.
+
 ## 2026-07-06
 
 Token-efficiency pass cutting the skill's runtime footprint ~75% with **zero behaviour change** — per-prompt injection down 79%, once-per-session ref load down 45% on the healthy path. `SKILL.md` was re-injected in full on every substantive prompt; it is now a **thin dispatcher** (16.4k → 3.5k chars) that points at `refs/protocol.md`, and its bloated frontmatter `description` — carried in every session's system prompt, previously truncated mid-word — collapsed to three sentences. Two files left the hot path entirely: the hook-adoption rule was inlined into protocol Step 2 so `refs/detect.md` is read **only** when the verdict is `ambiguous`/`degraded` or no block is present (~5% of prompts), and the Step 0.5 self-check now senses wounds with a single `ls` existence probe, loading `refs/manifest.json` **only on a failed check** instead of every run.

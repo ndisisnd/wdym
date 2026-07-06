@@ -8,7 +8,8 @@ type: reference
 
 Emit no step markers during normal operation. Visible output is limited to the
 Step 0.5 self-check repair line (only when something was healed or escalated) and
-the Step 6 Original → rationale → Enhanced block.
+the Step 6 enhanced-prompt block (the rewritten prompt only — no original, no
+rationale).
 
 ## Step 0 — Scan preference
 
@@ -205,17 +206,16 @@ gate to fill a placeholder, so **never emit placeholders** — skip a principle 
 needs unsupplied context (pick the next-best), or apply it only as far as the prompt
 supports. Placeholders are a comprehensive-mode device.
 
-Produce `enhanced_prompt` (plain text) and `rationale_table` (one row per principle:
-`Principle | Why applied`).
+Produce `enhanced_prompt` (plain text). No rationale is surfaced to the user — the
+selected principles and the reasoning behind the rewrite stay internal.
 
 ## Step 6 — Present & gate
 
 **Flash mode:** skip entirely — go to Step 7 with `chosen_prompt = enhanced_prompt`.
 
-**Comprehensive mode:** display, in order:
-1. `**Original:**` + the raw prompt in a blockquote
-2. `rationale_table`
-3. `**Enhanced:**` + `enhanced_prompt` in a blockquote
+**Comprehensive mode:** display only the rewritten prompt — `enhanced_prompt` in a
+blockquote, with no `**Enhanced:**`/`**Original:**` label, no original prompt, and no
+rationale. Never reveal which principles were selected or why.
 
 Call `AskUserQuestion` **once** with three options:
 

@@ -21,7 +21,7 @@ INLINE FLAGS  (drop anywhere in a prompt)
 
 RUN MODES
 ────────────────────────────────────────────────────────────────────
-  comprehensive  (default)           Shows original → rationale → enhanced; one gate:
+  comprehensive  (default)           Shows only the rewritten prompt; one gate:
                                      run enhanced / run original / edit
   flash                              Rewrites and fires immediately — no gate
 
