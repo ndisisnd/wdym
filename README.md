@@ -16,61 +16,41 @@ Introducing `wdym`: a robust, comprehensive skill that translates your blabber i
 ```bash
 git clone https://github.com/ndisisnd/wdym.git
 cd wdym
-./install.sh
+./install.sh     # global by default; prefix CLAUDE_CONFIG_DIR=… or SKILL_NAME=… to override
 ```
 
-Installing elsewhere:
-
-```bash
-CLAUDE_CONFIG_DIR=~/.config/claude ./install.sh   # different config dir
-SKILL_NAME=wdym ./install.sh                       # different skill name
-```
-
-Once it's installed, run:
+`./install.sh` only puts the files on disk. `wdym --init` is what arms it — and it asks one thing: **local or global?**
 
 ```bash
 wdym --init
 ```
-
-## ❓ How it works
-
-### The usual run
-
-Just write and `wdym` will translate it for you.
-
-1. **Catches it** — a `UserPromptSubmit` hook intercepts the prompt. Slash commands, tiny ≤5-word prompts, and "thanks"/"ok"/"continue"-style follow-ups get waved straight through untouched — the hook doesn't even emit its context block for those. No ceremony for small talk.
-2. **Figures out what you meant** — classifies the prompt as `code`, `question`, `text-gen`, or `none`. ~95% of real prompts resolve deterministically in the hook (zero tokens, regression-tested in `tests/detect_bench.py`); only genuinely mixed signals go to the LLM to adjudicate.
-3. **Loads the right playbook** — pulls the global principles plus the ones specific to your prompt type, then picks the top 2–3 that actually apply. It strips noise (politeness, threats, bribes, hedging) _before_ it adds structure (specificity, goals, format).
-4. **Rewrites it** — turns your blabber into something your LLM can actually chew on, and shows you _why_ each change was made.
-5. **Ships it** — in **comprehensive** mode it shows you the before/after and gives you one choice: run the enhanced version, run your original untouched, or edit the rewrite first. Your prompt always runs — rejecting the glow-up never eats your question. In **flash** mode it just sends the polished version and gets out of the way.
-
-That's it. You write like a human, your LLM reads like it's being respected.
-
-### Initialising
-
-`./install.sh` only puts the files on disk. `wdym --init` is what actually arms it:
-
-```bash
-wdym --init
-```
-
-It asks one thing: **local or global?**
 
 - **Local** — wires the hook and pref into _this_ project's `.claude/`. Only this repo gets the treatment.
 - **Global** — wires it into `~/.claude/`, so every project you touch gets it.
 
-Local always wins over global when both exist, so you can run it globally and still override per-project. `--init` writes your `pref.json` (where your run mode lives) and hooks up the `UserPromptSubmit` detector. Run it again any time — it's idempotent and won't clobber your edits.
+Local always wins over global when both exist, so you can run it globally and still override per-project. `--init` writes your `pref.json` (where your run mode lives) and hooks up the `UserPromptSubmit` detector. It's idempotent — run it again any time and it won't clobber your edits.
+
+## ❓ How it works
+
+Just write, and `wdym` translates it for you:
+
+1. **Catches it** — a `UserPromptSubmit` hook intercepts the prompt. Slash commands, ≤5-word prompts, and "thanks"/"ok"/"continue" follow-ups wave straight through untouched — no ceremony for small talk.
+2. **Figures out what you meant** — classifies the prompt as `code`, `question`, `text-gen`, or `none`. ~95% of real prompts resolve deterministically in the hook (zero tokens); only genuinely mixed signals go to the LLM to adjudicate.
+3. **Loads the right playbook** — pulls the global principles plus the ones for your prompt type, then picks the top 2–3 that actually apply. It strips noise (politeness, threats, bribes, hedging) _before_ adding structure (specificity, goals, format).
+4. **Rewrites it** — turns your blabber into something your LLM can actually chew on, and shows you _why_ each change was made.
+5. **Ships it** — how it submits depends on your run mode (see below). Either way your prompt always runs; rejecting the glow-up never eats your question.
+
+That's it. You write like a human, your LLM reads like it's being respected.
 
 ## 🌟 Modes
 
-`wdym` runs in two persistent **run modes** and takes a handful of **flags** to switch behaviour. Drop any of these into a prompt _(or run them standalone)_:
+`wdym` runs in two persistent **run modes** and takes a handful of **flags**. Drop any of these into a prompt _(or run them standalone)_:
 
 | Mode / Flag | What it does |
 |---|---|
 | `comprehensive` _(default)_ | Shows you the original, the rationale, and the enhanced prompt — then one 3-way gate: **run enhanced · run original · edit**. Cautious by design, but your prompt always runs. |
-| `flash` | Skips the gate entirely. Rewrites your prompt and fires it off immediately — and never inserts `[fill-this-in]` placeholders, since nothing would fill them. For when you trust the glow-up. |
-| `--comprehensive` / `--flash` | Permanently switches your stored run mode and continues with this run. |
-| `--set-mode --flash` / `--set-mode --comprehensive` | Switches the stored mode _without_ touching the current prompt — pure mode management, then exits. |
+| `flash` | Skips the gate entirely. Rewrites your prompt and fires it off immediately — and never inserts `[fill-this-in]` placeholders, since nothing would fill them. |
+| `--flash` / `--comprehensive` | Permanently switch your stored run mode (add `--set-mode` to switch _without_ touching the current prompt). |
 | `--global` | Forces the universal principle base and skips type detection for this run. Good for one-off, type-agnostic prompts. |
 | `--init` | Bootstraps the skill — writes `pref.json` and wires the hook, asking local vs. global scope. |
 | `--status` _(alias `--stats`)_ | Prints a styled usage report — prompts seen, transform rate, a ranked by-type breakdown. Telemetry stays 100% local. |

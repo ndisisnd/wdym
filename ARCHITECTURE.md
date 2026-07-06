@@ -13,7 +13,8 @@ User types a prompt and submits
 │    → NO block emitted; telemetry line only. Prompt runs as-is.  │
 │  Otherwise:                                                     │
 │    Score prompt against categories.json (keyword/regex)         │
-│    Emit <prompt-detect> block: verdict + scores + candidates    │
+│    Emit minimal <prompt-detect> block: verdict (+ type on       │
+│      clear, + scores/candidates on ambiguous)                   │
 │    Block ends with ACTION line → model invokes the wdym skill   │
 │    Append src:"hook" line → telemetry.jsonl                     │
 └─────────────────────────────────────────────────────────────────┘
@@ -23,9 +24,10 @@ User types a prompt and submits
 │  SKILL.md execution begins                                      │
 │                                                                 │
 │  Step 0    Read pref.json → run_mode                           │
-│          │ Handle --init / --status / --set-mode flags          │
+│          │ /wdym command flags → refs/commands.md, terminate    │
 │          ▼                                                      │
-│  Step 0.5  Self-check against manifest.json                    │
+│  Step 0.5  Self-check (ls existence probe;                     │
+│          │ manifest.json read only on a failed check)           │
 │          │ Heal missing / corrupt files silently                │
 │          ▼                                                      │
 │  Step 1    Passthrough check (no-hook fallback only —           │
@@ -34,11 +36,11 @@ User types a prompt and submits
 │          │                                                      │
 │          ▼                                                      │
 │  Step 2    Classify prompt type                                │
-│          │ Read <prompt-detect> verdict from hook               │
-│          │ • clear    → trust directly                          │
+│          │ Adopt <prompt-detect> verdict from hook              │
+│          │ • clear    → trust directly (detect.md NOT read)     │
 │          │ • global   → universal base (zero signal / --global) │
-│          │ • ambiguous→ adjudicate among tied candidates        │
-│          │ • degraded → run manual LLM algorithm                │
+│          │ • ambiguous→ read detect.md, adjudicate candidates   │
+│          │ • degraded/no block → read detect.md, manual LLM     │
 │          │ Output: prompt_type (code|question|                  │
 │          │         text-gen|none) + mode                        │
 │          ▼                                                      │
@@ -75,7 +77,7 @@ User types a prompt and submits
 
 ```
 wdym/
-├── SKILL.md                        Execution protocol (Steps 0–8)
+├── SKILL.md                        Thin dispatcher → refs/protocol.md
 ├── pref.json                       Default mode template
 ├── install.sh                      Installation helper
 ├── hooks/
@@ -84,19 +86,45 @@ wdym/
 ├── tests/
 │   └── detect_bench.py             Detection regression bench (expected verdicts)
 └── refs/
-    ├── protocol.md                 Step-by-step reference
-    ├── detect.md                   Type detection algorithm
+    ├── protocol.md                 Step-by-step execution reference (Steps 0–8)
+    ├── commands.md                 /wdym command handling (--init/--help/--status/--set-mode)
+    ├── help.txt                    Verbatim --help text (printed via cat)
+    ├── detect.md                   Manual type-detection path (ambiguous/absent only)
     ├── init.md                     --init bootstrap protocol
-    ├── manifest.json               Self-check & repair definitions
+    ├── manifest.json               Self-check & repair definitions (read only on a failed check)
     ├── categories.json             Type taxonomy (user-editable)
     ├── categories.default.json     Pristine restore copy
+    ├── authoring.md                How to add custom principles (not loaded at runtime)
     └── principles/
-        ├── principles-global.md    21 universal principles (always loaded)
+        ├── principles-global.md    Universal principles (always loaded)
         ├── principles-code.md      Code-specific principles
         ├── principles-question.md  Question-specific principles
         └── principles-text-gen.md  Text-gen principles
-                                    (each file ends with worked examples, parsed and attached per principle; global base also carries the authoring guide)
+                                    (each file ends with worked examples, parsed and attached per principle)
 ```
+
+## Design Notes
+
+**Token budget.** SKILL.md is a thin dispatcher, not the protocol — its body is
+re-injected on every skill invocation, so operational detail lives in `refs/*` that
+load only on the paths that need them. On the common path (hook verdict `clear`/`global`,
+healthy install) a run reads only `protocol.md` + `principles-global.md` (+ one type
+file, once per session); `detect.md`, `manifest.json`, `commands.md`, and `help.txt`
+stay off the hot path.
+
+**Per-file principle caching.** A session's `prompt_type` changes between prompts (a
+code edit, then a conceptual question). Caching one fixed principle list would serve the
+wrong pool after a switch; caching *per file* rebuilds `principles_list = global base ∪
+this run's type` from cache each run while still reading each file only once. A
+code→question→code session reads `global`, `code`, `question` once each — the second
+code prompt reads nothing.
+
+**Degrade, then heal.** The skill degrades gracefully through any single wound (dead
+hook → LLM detection, missing pref → comprehensive, missing type file → global base).
+Degradation keeps a run alive but never closes the wound — it would run degraded forever,
+silently. The Step 0.5 self-check adds the missing half (sense → repair → escalate) once
+per session so the skill recovers. The telemetry stream is deliberately outside this
+layer: append-only, best-effort, never healed, so it can never block or alter a run.
 
 ## Run Modes
 

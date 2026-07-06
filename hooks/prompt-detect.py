@@ -250,21 +250,22 @@ def main() -> int:
             ranked, min_score, min_lead
         )
 
-    score_str = " ".join(f"{k}={v}" for k, v in scores.items())
-    lines = [
-        '<prompt-detect source="hook" deterministic="true">',
-        f"scores: {score_str}",
-        f"forced: {','.join(forced) if forced else 'none'}",
-        f"global_flag: {str(global_flag).lower()}",
-        f"verdict: {verdict}",
-    ]
-    if verdict in ("clear", "global"):
-        mode = "global" if prompt_type == "none" else f"typed:{prompt_type}"
+    # Minimal block: the skill derives mode from verdict+type and reads
+    # refs/detect.md only on the ambiguous path, so clear/global carry just the
+    # verdict (+ type when clear). scores/candidates ride only on ambiguous,
+    # where they seed LLM adjudication. Dropped: forced, global_flag, mode, note
+    # (a global verdict already implies mode=global; --global forces it upstream).
+    lines = ['<prompt-detect source="hook" deterministic="true">']
+    if verdict == "clear":
+        lines.append("verdict: clear")
         lines.append(f"prompt_type: {prompt_type}")
-        lines.append(f"mode: {mode}")
-    else:
+    elif verdict == "global":
+        lines.append("verdict: global")
+    else:  # ambiguous
+        score_str = " ".join(f"{k}={v}" for k, v in scores.items())
+        lines.append("verdict: ambiguous")
+        lines.append(f"scores: {score_str}")
         lines.append(f"candidates: {','.join(candidates) if candidates else 'none'}")
-        lines.append("note: no clear winner — adjudicate per refs/detect.md")
     lines.append(ACTION_LINE)
     lines.append("</prompt-detect>")
     context = "\n".join(lines)

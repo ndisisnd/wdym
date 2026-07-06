@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "description": "Known-good manifest for the wdym skill. The self-check (protocol Step 0.5) and the hook read this to know what a healthy install looks like and what to restore from. Repairs are idempotent and non-destructive: a MISSING file with a restore_from source is recreated; a PRESENT-but-invalid file that may hold user edits is escalated, never clobbered.",
+  "version": 2,
+  "description": "Known-good manifest for the wdym skill. The self-check (protocol Step 0.5) reads this ONLY when its ls existence probe or a check fails — the healthy path never loads it. Repairs are idempotent and non-destructive: a MISSING file with a restore_from source is recreated; a PRESENT-but-invalid file that may hold user edits is escalated, never clobbered.",
   "required_files": [
     {
       "path": "hooks/prompt-detect.py",
@@ -15,6 +15,41 @@
       "required": true,
       "restore_from": null,
       "on_missing": "escalate"
+    },
+    {
+      "path": "refs/protocol.md",
+      "role": "Execution protocol (Steps 0–8) the skill follows end-to-end",
+      "required": true,
+      "restore_from": null,
+      "on_missing": "escalate"
+    },
+    {
+      "path": "refs/commands.md",
+      "role": "Handles /wdym command flags (--init/--help/--status/--set-mode)",
+      "required": true,
+      "restore_from": null,
+      "on_missing": "escalate"
+    },
+    {
+      "path": "refs/help.txt",
+      "role": "Verbatim --help text, printed via cat by refs/commands.md",
+      "required": true,
+      "restore_from": null,
+      "on_missing": "escalate"
+    },
+    {
+      "path": "refs/detect.md",
+      "role": "Manual type-detection path (read only on ambiguous/degraded/no-block)",
+      "required": true,
+      "restore_from": null,
+      "on_missing": "escalate"
+    },
+    {
+      "path": "refs/authoring.md",
+      "role": "How to add custom principles — reference only, not loaded at runtime",
+      "required": false,
+      "restore_from": null,
+      "on_missing": "noop"
     },
     {
       "path": "refs/categories.json",

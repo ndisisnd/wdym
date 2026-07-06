@@ -6,22 +6,9 @@ type: reference
 
 # Prompt Engineering Principles — Global base
 
-Each principle targets a specific weakness. Principles are **additive** (add what is missing) or **subtractive** (remove what hurts). Apply 2–3 per prompt — never all at once.
+Each principle targets a specific weakness and is **additive** (adds what is missing) or **subtractive** (removes what hurts). Apply 2–3 per prompt, never all at once. Every row carries an **Exemplar** (`before → after`) — use it as a pattern, not a template to copy verbatim.
 
-Every principle row carries an **Exemplar**: a compact `before → after` showing the principle's effect in isolation. Use it as a pattern, not a template to copy verbatim.
-
-This file is the **global base** — universal, academically-grounded principles. It is **always loaded**, and used alone in `--global` / `mode = global`. When the detection protocol (`refs/detect.md`) resolves a `prompt_type`, the one matching type file under `refs/principles/` is loaded *on top of* this base, and selection ranks across the **combined** pool (global base ∪ the one matching type section).
-
-## Selection guide
-
-Score each principle against the raw prompt before selecting:
-- **Additive**: Does the prompt lack what this principle adds? → high score
-- **Subtractive**: Does the prompt contain noise this principle removes? → high score
-- Does the prompt already do this well, or lack the targeted noise? → skip
-
-Subtractive principles always rank above additive ones when both apply: remove noise before adding structure. When a type section is loaded, a matching type-specific principle outranks a global one of equal score — the domain signal is stronger evidence.
-
-**Rows are ordered by impact, highest first** (within each table — additive, subtractive, and every type file). The order encodes a static prior on how much a principle improves output *when it applies*; it does **not** override applicability. Use it only as a tie-break: when two applicable principles score equally on relevance, prefer the one listed earlier. Never promote a barely-applicable high-row principle over a clearly-applicable lower one.
+This is the **global base** — always loaded, and used alone in `--global` / `mode = global`. When a `prompt_type` resolves, its matching type file loads *on top of* this base and selection ranks across the combined pool. The full scoring and ranking rules live in protocol Step 4; within each table below, **rows are ordered by impact (highest first)** — a tie-break between equally-applicable principles only, never a reason to promote a barely-applicable one.
 
 ---
 
@@ -118,10 +105,4 @@ A **curated subset** — one example per pattern family (context, specificity, o
 
 ## Adding custom principles
 
-Add rows to the appropriate file — global principles here, domain principles to the matching `principles-<type>.md`. Follow the column format:
-- **Principle**: short noun phrase (≤4 words)
-- **Description**: what the principle adds to (or removes from) the prompt (≤20 words)
-- **When to apply**: one observable trigger condition (≤15 words)
-- **Exemplar**: a compact `before → after` showing the principle's effect in isolation
-
-Type files also carry a **Type** column (`additive` / `subtractive`) used to rank against the global pool. When you add a principle, you may also append a matching worked example to that file's **Worked examples** section — keyed by the principle name, combining it with 1–2 companions.
+See `refs/authoring.md` for the column format and how to append a worked example.
