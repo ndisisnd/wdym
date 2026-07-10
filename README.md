@@ -13,22 +13,31 @@ Introducing `wdym`: a robust, comprehensive skill that translates your blabber i
 
 ## ⚒️ Installation
 
-```bash
-git clone https://github.com/ndisisnd/wdym.git
-cd wdym
-./install.sh     # global by default; prefix CLAUDE_CONFIG_DIR=… or SKILL_NAME=… to override
-```
-
-`./install.sh` only puts the files on disk. `wdym --init` is what arms it — and it asks one thing: **local or global?**
+`cd` into the project you want `wdym` in, then:
 
 ```bash
-wdym --init
+curl -fsSL https://raw.githubusercontent.com/ndisisnd/wdym/main/install.sh | bash
 ```
 
-- **Local** — wires the hook and pref into _this_ project's `.claude/`. Only this repo gets the treatment.
-- **Global** — wires it into `~/.claude/`, so every project you touch gets it.
+The installer pulls a tarball into a temp dir — no clone, nothing left behind. **Local is the default**: the skill lands in `./.claude/skills/wdym`, the hook goes into `./.claude/settings.local.json`, and `wdym` fires only in this project.
 
-Local always wins over global when both exist, so you can run it globally and still override per-project. `--init` writes your `pref.json` (where your run mode lives) and hooks up the `UserPromptSubmit` detector. It's idempotent — run it again any time and it won't clobber your edits.
+Want it everywhere? Ask for it explicitly:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ndisisnd/wdym/main/install.sh | bash -s -- --global
+```
+
+That installs into `~/.claude/` and wires `~/.claude/settings.json`, so every project you touch gets the treatment. Local always wins over global when both exist, so you can run it globally and still override per-project.
+
+| Flag | What it does |
+|---|---|
+| _(none)_ | Local install into `./.claude` — the default |
+| `--global` | Install into `~/.claude` for all projects |
+| `--dir <path>` | Local install into another project |
+| `--tarball <url\|path>` | Install from a specific tarball instead of `main` |
+| `--force` | Skip the "you're inside the wdym repo" guard |
+
+Both scopes write your `pref.json` (where your run mode lives) and wire up the `UserPromptSubmit` detector in one shot. It's idempotent — run it again any time and it won't clobber your prefs. Already have the files on disk and just want to rewire? `/wdym --init` does the init half on its own.
 
 ## ❓ How it works
 

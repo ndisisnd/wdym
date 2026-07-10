@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented here.
 
+## [2] — BREAKING: installing wdym no longer touches every project — it lands in the one you're in
+
+2026-07-10
+
+- `install.sh`: install locally by default, from a tarball instead of the repo you're standing in
+  - Changed: **BREAKING** — the default scope is now local (`./.claude/skills/wdym`, hook in `./.claude/settings.local.json`); the old global behaviour moves behind `--global`
+  - Added: the skill is fetched as a tarball into a temp dir and unpacked from there, so `curl … | bash` works with no clone and nothing is left on disk
+  - Added: `--global`, `--local`, `--dir <project>`, `--tarball <url|path>`, `--force` and `--help` flags; `WDYM_TARBALL` overrides the default archive
+  - Added: a guard that refuses a local install inside the wdym source repo, which would otherwise nest the skill in its own tree
+  - Changed: required-file verification now runs against the unpacked tarball, catching a truncated download before the target is touched
+  - Removed: the `rsync` copy path and its exclude list — with the tarball staged in a temp dir there is nothing left to exclude
+  - Removed: `pref.json` is no longer copied into the skill directory; the hook only ever reads it from `.claude/wdym/pref.json`
+- `README.md`: rewrite the installation section around `curl … | bash`, state that local is the default, and document every installer flag in a table
+- `.claude/kermit/pref.json`: reformat and record changelog numbering state
+
 ## [1] — Prompts cost half as much to enhance, and already-good prompts skip the skill entirely
 
 2026-07-10

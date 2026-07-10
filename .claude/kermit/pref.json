@@ -1,1 +1,12 @@
-{"initialized": true, "init_commit": "e99cc6450d9b5723dea95eddc517d1142bf1096a", "backfill": null, "auto_approve": true, "auto_commit": true, "auto_merge": true, "last_logged_commit": "5f4c31572a36e462008a0fb9475dcac9a21bd0b8"}
+{
+  "initialized": true,
+  "init_commit": "e99cc6450d9b5723dea95eddc517d1142bf1096a",
+  "backfill": null,
+  "auto_approve": true,
+  "auto_commit": true,
+  "auto_merge": true,
+  "last_logged_commit": "f4400ceb9e131ccb89a5d55fa68a473996288986",
+  "changelog": {
+    "last_number": 2
+  }
+}
