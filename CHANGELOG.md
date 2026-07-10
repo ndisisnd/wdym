@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented here.
 
+## [1] — Prompts cost half as much to enhance, and already-good prompts skip the skill entirely
+
+2026-07-10
+
+- `hooks/prompt-detect.py`: absorb four deterministic duties from the skill, each one deleting an LLM tool call (a full-context API round trip)
+  - Added: resolve `pref.json` (local over global) into a `run_mode:` block line — the skill no longer reads the pref
+  - Added: probe required files and emit a `selfcheck:` line **only** on failure — the skill skips its own `ls` probe
+  - Added: pre-log the `src:"skill"` telemetry line when flash mode + a clear/global verdict make the outcome deterministically `run`, marking the block `telemetry: logged`
+  - Added: a well-formed skip gate — a prompt with an imperative opening, ≥2 structure signals (numeric constraint / format / audience / success criteria) and zero noise cues gets no block at all, so the skill never fires
+- `SKILL.md`: cut to a thin dispatcher (892→334 tok); it is re-injected on every invocation, so this recurs per prompt
+- `refs/protocol.md`: halved (3419→1699 tok); Step 0.5 now branches on the hook's verdict, Step 0 adopts `run_mode:`, Step 8 skips when the hook pre-logged
+- `refs/heal.md`: new — the self-check repair protocol (sense → repair → escalate), read only when the hook reports a wound or no block appears
+- `refs/principles/principles-global.md`: Description column folded into When-to-apply; per-principle worked examples replaced by two combination patterns (2716→1581 tok)
+- `refs/principles/principles-code.md`: same slimming (1466→696 tok)
+- `refs/principles/principles-question.md`: same slimming (972→458 tok)
+- `refs/principles/principles-text-gen.md`: same slimming (968→458 tok)
+- `refs/categories.json`: add the `well_formed` gate config (`enabled`, `min_extra_signals`)
+- `refs/categories.default.json`: mirror the `well_formed` config in the restore source
+- `refs/commands.md`: inline the file probe — slash commands get no hook block, so the hook's probe never ran for them
+- `refs/manifest.json`: register `refs/heal.md` as a required file
+- `refs/authoring.md`: drop the per-principle worked-example guidance; exemplars now stand alone
+- `tests/token_bench.py`: new — repeatable benchmark measuring file tokens, hook-block size, corpus suppression rate, and tool calls per prompt; feature-detects the hook so it benches any tree
+- `tests/detect_bench.py`: 5 new skip-gate cases (3 suppressed, 2 negative controls); 28 cases total, holding at 95% deterministic
+- `.claude/kermit/pref.json`: `last_logged_commit` bump
+
+Measured on the happy path (flash, clear verdict, healthy install): the first substantive prompt of a session drops from 7 tool calls / ≈8162 file tokens to **4 calls / ≈4151 tokens**; every later prompt drops from 2 calls / ≈892 tokens to **1 call / ≈334 tokens**. The per-prompt telemetry Bash append — paid on every prompt of every session — is gone, traded for 8 extra hook-block tokens. Four of fourteen benchmark-corpus prompts now skip the skill outright. Detection behaviour is unchanged.
+
 ## 2026-07-06 (2)
 
 Comprehensive mode now emits **only the rewritten prompt** — the original prompt and the principle rationale are no longer shown. Protocol Step 6 previously displayed an `Original → rationale_table → Enhanced` block; it now renders `enhanced_prompt` alone in a blockquote, and Step 5 stops building the user-facing `rationale_table` (the selected principles and reasoning stay internal). The three-way approval gate (run enhanced · run original · edit) is unchanged, and flash mode was already silent. Updated `SKILL.md` (output-discipline paragraph + comprehensive row of the run-modes table) and `refs/help.txt` to describe the leaner output.

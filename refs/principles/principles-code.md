@@ -6,95 +6,20 @@ type: reference
 
 # Coding — `prompt_type = code`
 
-Loaded **on top of** the global base (`refs/principles/principles-global.md`) when `refs/detect.md` resolves `prompt_type = code`. The `type` column marks `additive` / `subtractive` for ranking against the global pool. Rows are **ordered by impact, highest first** — used only as a tie-break between equally-applicable principles (see the global base's selection guide).
+Loaded **on top of** the global base when `prompt_type = code`. The `type` column
+marks `additive`/`subtractive` for ranking against the global pool. Rows are
+impact-ordered, highest first (tie-break only).
 
-| Principle | Type | Description | When to apply | Exemplar |
-|-----------|------|-------------|---------------|----------|
-| Existing-code context | additive | Reference the surrounding code, framework, or file the change must fit. | Prompt says "it"/"this"/"the project" without showing the code | `fix the bug in it` → `Fix the off-by-one in the paginate() function below: …` |
-| Verification & done criteria | additive | State how to verify the change and what done looks like — tests pass, build green, behaviour observed. | A change is requested with no way to confirm it worked | `add rate limiting to the api` → `Add rate limiting to the API. Done = existing tests still pass and a burst of rapid requests returns 429.` |
-| I/O contract | additive | State inputs, outputs, types, and the function/CLI signature. | Shape of the interface is left open | `a function to sort users` → `def sort_users(users: list[User]) -> list[User] — sorted by signup date.` |
-| Edge cases & errors | additive | Require handling of empty/invalid/boundary inputs and the failure behaviour. | Prompt asks only for the happy path | `divide two numbers` → `Divide two numbers; raise ValueError on divide-by-zero and non-numeric input.` |
-| Language & version | additive | Name the language and runtime/version the code must target. | Language or version is unstated or implied | `parse a date` → `In Python 3.11, parse an ISO-8601 date string.` |
-| Test request | additive | Ask for unit tests or runnable usage examples alongside the code. | Correctness matters and no tests are requested | `write a slugify function` → `Write a slugify function plus pytest unit tests covering unicode and empty input.` |
-| Dependency & style constraints | additive | Bound allowed libraries, style guide, and "no new dependencies" where relevant. | Open-ended; risk of pulling unwanted deps or off-house-style code | `fetch a URL` → `Fetch a URL using only the standard library — no new dependencies.` |
+| Principle | Type | When to apply | Exemplar |
+|-----------|------|---------------|----------|
+| Existing-code context | additive | Prompt says "it"/"this"/"the project" without showing the code — reference the actual function, file, or framework the change must fit | `fix the bug in it` → `Fix the off-by-one in the paginate() function below — it drops the last record when total isn't a multiple of page_size: …` |
+| Verification & done criteria | additive | A change is requested with no way to confirm it worked — state what done looks like (tests pass, behaviour observed) | `add retry logic to the fetcher` → `Add retry logic to the fetcher — exponential backoff, max 3 attempts. Done = existing tests pass, plus a new test showing a transient failure succeeds on retry.` |
+| I/O contract | additive | Interface shape left open — state inputs, outputs, types, signature | `a function to sort users` → `Write def sort_users(users: list[User]) -> list[User], sorted by signup_date descending, None dates last; do not mutate the input.` |
+| Edge cases & errors | additive | Prompt asks only for the happy path — require empty/invalid/boundary handling and failure behaviour | `parse the amount from the string` → `Parse "$1,299.00"-style strings into a Decimal; handle separators and negatives in parentheses, raise ValueError on anything unparseable.` |
+| Language & version | additive | Language or runtime unstated — name them | `make a config loader` → `In Python 3.12, write a config loader using stdlib tomllib returning a frozen dataclass.` |
+| Test request | additive | Correctness matters and no tests are requested — ask for unit tests or runnable examples | `write a slugify function` → `Write a slugify() function plus pytest tests covering unicode accents, leading/trailing spaces, and empty input.` |
+| Dependency & style constraints | additive | Open-ended; risk of unwanted deps or off-style code — bound libraries and style | `fetch a URL and return the json` → `Fetch a URL and return parsed JSON using only the standard library — no requests/httpx; type hints, 5-second timeout.` |
 
----
-
-## Worked examples
-
-Each worked example combines this file's principles (and the global base) on one prompt; the row **Exemplars** above show each alone. These **are parsed** at runtime: Step 3 keys each block to its principle (by the `###` heading) and attaches it as that principle's `worked_example`, used in Step 5 alongside the row Exemplar. Use them as patterns, not templates.
-
-### Existing-code context
-
-**Before:** `fix the bug in it`
-
-**After:**
-```
-Fix the off-by-one in the paginate() function below — it drops the last record when total isn't a multiple of page_size:
-
-def paginate(items, page, page_size):
-    start = page * page_size
-    return items[start:start + page_size]
-```
-
-**Principles applied:** Existing-code context (the actual function is shown), Specificity (names the exact symptom — last record dropped).
-
----
-
-### Verification & done criteria
-
-**Before:** `add retry logic to the fetcher`
-
-**After:** `Add retry logic to the fetcher — exponential backoff, max 3 attempts. Done = the existing test suite still passes, plus a new test showing a transient failure succeeds on retry and a permanent failure surfaces after 3 attempts. Run the tests after the change.`
-
-**Principles applied:** Verification & done criteria (done = named observable outcomes, tests run after), Edge cases & errors (transient vs permanent failure behaviour).
-
----
-
-### I/O contract
-
-**Before:** `a function to sort users`
-
-**After:** `Write def sort_users(users: list[User]) -> list[User] that returns users sorted by signup_date descending, with None dates last. Do not mutate the input.`
-
-**Principles applied:** I/O contract (signature, types, ordering, return), Edge cases & errors (None dates, no mutation).
-
----
-
-### Edge cases & errors
-
-**Before:** `parse the amount from the string`
-
-**After:** `Write a function that parses a currency amount from a string like "$1,299.00" into a Decimal. Handle missing symbols, thousands separators, and negatives in parentheses; raise ValueError on anything unparseable.`
-
-**Principles applied:** Edge cases & errors (separators, negatives, unparseable → ValueError), I/O contract (string in, Decimal out).
-
----
-
-### Language & version
-
-**Before:** `make a config loader`
-
-**After:** `In Python 3.12, write a config loader that reads a TOML file with the stdlib tomllib and returns a frozen dataclass. No third-party libraries.`
-
-**Principles applied:** Language & version (Python 3.12 — so tomllib is stdlib), Dependency & style constraints (no third-party libs).
-
----
-
-### Test request
-
-**Before:** `write a slugify function`
-
-**After:** `Write a slugify() function that lowercases, strips punctuation, and joins words with hyphens. Add pytest tests covering unicode accents, leading/trailing spaces, and empty input.`
-
-**Principles applied:** Test request (pytest cases named), Edge cases & errors (unicode, spaces, empty input).
-
----
-
-### Dependency & style constraints
-
-**Before:** `fetch a URL and return the json`
-
-**After:** `Fetch a URL and return the parsed JSON using only the standard library — no requests or httpx. Follow PEP 8, add type hints, and time out after 5 seconds.`
-
-**Principles applied:** Dependency & style constraints (stdlib only, PEP 8, type hints), Edge cases & errors (5-second timeout).
+**Combination pattern:** exemplars combine naturally — e.g. `fix the bug in it` →
+show the actual code (Existing-code context) + name the exact symptom (Specificity)
++ state how to verify the fix (Verification & done criteria).

@@ -18,6 +18,23 @@ Passthrough prompts (slash command / <=5 words / conversational follow-up) get
 NO block at all — only a telemetry line. This makes the contract binary: block
 present => substantive prompt => the ACTION line in the block instructs the
 model to invoke the wdym skill. Block absent => respond normally.
+
+Token-efficiency duties absorbed from the skill (each deletes an LLM tool call,
+i.e. a full-context API round trip):
+  - run_mode:   resolves pref.json (local over global) into a `run_mode:` block
+                line, so the skill never reads the pref on the happy path.
+  - selfcheck:  probes the required files; a `selfcheck:` line appears ONLY on
+                failure — the skill reads refs/heal.md then, and otherwise
+                skips its own probe entirely.
+  - telemetry:  in flash mode with a clear/global verdict the outcome is
+                deterministically "run", so the hook pre-logs the src:"skill"
+                line and marks the block `telemetry: logged`; the skill skips
+                its Step 8 append.
+  - well_formed skip: a prompt that already carries structure (imperative
+                opening plus >=2 of numeric constraint / format / audience /
+                success criteria) and zero noise cues gets no block at all — a
+                rewrite would not improve it. Tunable via categories.json
+                `well_formed`; logged with verdict "skip".
 """
 
 import json
@@ -84,6 +101,90 @@ def log_telemetry(record: dict) -> None:
             fh.write(json.dumps(record, separators=(",", ":")) + "\n")
     except Exception:
         pass
+
+
+def resolve_run_mode():
+    """Resolve pref.json local-first (same order as telemetry_path). Returns
+    (run_mode, pref_wound): mode defaults to 'comprehensive'; pref_wound is a
+    selfcheck note when a pref exists but is invalid (skill heals via heal.md).
+    """
+    candidates = []
+    proj = os.environ.get("CLAUDE_PROJECT_DIR")
+    if proj:
+        candidates.append(os.path.join(proj, ".claude", "wdym", "pref.json"))
+    candidates.append(os.path.join(os.getcwd(), ".claude", "wdym", "pref.json"))
+    candidates.append(os.path.expanduser("~/.claude/wdym/pref.json"))
+    for p in candidates:
+        if not os.path.isfile(p):
+            continue
+        try:
+            with open(p, "r", encoding="utf-8") as fh:
+                mode = json.load(fh).get("mode")
+            if mode in ("comprehensive", "flash"):
+                return mode, None
+            return "comprehensive", "pref invalid"
+        except Exception:
+            return "comprehensive", "pref unparseable"
+    return "comprehensive", None
+
+
+SELFCHECK_FILES = (  # relative to the skill root; categories.json has its own path
+    "refs/categories.default.json",
+    "refs/principles/principles-global.md",
+    "refs/protocol.md",
+    "refs/heal.md",
+    "hooks/telemetry-stats.py",
+)
+
+
+def selfcheck(root: str):
+    """Existence probe the skill used to burn a Bash call on. Returns the list
+    of missing required files (empty = healthy)."""
+    return [f for f in SELFCHECK_FILES
+            if not os.path.isfile(os.path.join(root, f))]
+
+
+# --- well-formed skip gate ----------------------------------------------------
+# A prompt that already reads like a finished instruction gains nothing from a
+# rewrite; suppressing the block skips the whole skill invocation. Conservative
+# by design: imperative opening + >=2 structure signals + zero noise cues.
+
+IMPERATIVE_OPENERS = (
+    "write", "list", "summarize", "summarise", "explain", "draft", "generate",
+    "create", "implement", "refactor", "fix", "review", "translate", "rewrite",
+    "compare", "produce", "return", "give", "make", "add", "convert",
+    "extract", "classify", "update", "describe", "outline", "analyze",
+    "analyse", "recommend",
+)
+SIGNAL_PATTERNS = (
+    # numeric constraint
+    r"\b\d+[- ]?(words?|bullets?|sentences?|lines?|items?|paragraphs?|points?|steps?|examples?|issues?)\b",
+    r"\b(under|at most|max(imum)?|no more than|top|within) \d+\b",
+    # explicit format
+    r"\b(as|in|into) (a |an )?(two-column )?(table|json|yaml|csv|markdown|numbered list|code block)\b",
+    # audience
+    r"\b(for|to) (a |an )?(beginners?|experts?|child(ren)?|non-technical|technical|first-time|new|novice|junior|senior|\d+-year-old)\b",
+    # success criteria / ordering
+    r"\b(ranked by|ordered by|sorted by|by severity|by priority|each with)\b",
+)
+NOISE_CUES = (
+    "please", "thank", "could you", "can you", "would you", "help me",
+    "i think", "maybe", "sorry", "i want you", "i need you", "take a deep breath",
+    "tip you",
+)
+
+
+def is_well_formed(text: str, cfg: dict) -> bool:
+    wf = cfg.get("well_formed", {})
+    if not wf.get("enabled", False):
+        return False
+    first = re.split(r"[^a-z']+", text.strip(), 1)[0]
+    if first not in IMPERATIVE_OPENERS:
+        return False
+    if any(cue_match(c, text) for c in NOISE_CUES):
+        return False
+    signals = sum(1 for p in SIGNAL_PATTERNS if re.search(p, text))
+    return signals >= wf.get("min_extra_signals", 2)
 
 
 def cue_match(term: str, text: str) -> bool:
@@ -156,10 +257,12 @@ def emit_degraded(reason: str, global_flag: bool, raw: str = "") -> int:
         "type": "none",
         "passthrough": is_passthrough(raw),
     })
+    run_mode, _ = resolve_run_mode()
     lines = [
         '<prompt-detect source="hook" deterministic="true" verdict="degraded">',
         f"reason: {reason}",
         f"global_flag: {str(global_flag).lower()}",
+        f"run_mode: {run_mode}",
         "note: deterministic scorer disabled — self-check should heal "
         "refs/categories.json; adjudicate this prompt per refs/detect.md",
         ACTION_LINE,
@@ -213,6 +316,21 @@ def main() -> int:
     cats = cfg.get("categories", [])
     if not isinstance(cats, list) or not cats:
         return emit_degraded("categories.json has no categories", global_flag, raw)
+
+    # Inline mode directives make the run non-deterministic for the hook (the
+    # skill persists a pref change) — disable skip and telemetry pre-log.
+    inline_directive = re.search(r"(?<!\S)--(flash|comprehensive)(?!\S)", text) is not None
+
+    if not global_flag and not inline_directive and is_well_formed(text, cfg):
+        log_telemetry({
+            "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "src": "hook",
+            "verdict": "skip",
+            "type": "none",
+            "passthrough": False,
+        })
+        return 0
+
     thr = cfg.get("threshold", {})
     min_score = thr.get("min_score", 2)
     min_lead = thr.get("min_lead", 1)
@@ -253,8 +371,17 @@ def main() -> int:
     # Minimal block: the skill derives mode from verdict+type and reads
     # refs/detect.md only on the ambiguous path, so clear/global carry just the
     # verdict (+ type when clear). scores/candidates ride only on ambiguous,
-    # where they seed LLM adjudication. Dropped: forced, global_flag, mode, note
-    # (a global verdict already implies mode=global; --global forces it upstream).
+    # where they seed LLM adjudication. run_mode is the pref pre-resolved;
+    # selfcheck appears only on failure; `telemetry: logged` tells the skill
+    # its Step 8 line is already written.
+    run_mode, pref_wound = resolve_run_mode()
+    root = os.path.dirname(here)
+    missing = selfcheck(root)
+    wounds = missing + ([pref_wound] if pref_wound else [])
+
+    prelog = (run_mode == "flash" and not inline_directive
+              and verdict in ("clear", "global"))
+
     lines = ['<prompt-detect source="hook" deterministic="true">']
     if verdict == "clear":
         lines.append("verdict: clear")
@@ -266,17 +393,32 @@ def main() -> int:
         lines.append("verdict: ambiguous")
         lines.append(f"scores: {score_str}")
         lines.append(f"candidates: {','.join(candidates) if candidates else 'none'}")
+    lines.append(f"run_mode: {run_mode}")
+    if wounds:
+        lines.append(f"selfcheck: {', '.join(wounds)}")
+    if prelog:
+        lines.append("telemetry: logged")
     lines.append(ACTION_LINE)
     lines.append("</prompt-detect>")
     context = "\n".join(lines)
 
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     log_telemetry({
-        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ts": ts,
         "src": "hook",
         "verdict": verdict,
         "type": prompt_type,
         "passthrough": is_passthrough(raw),
     })
+    if prelog:
+        log_telemetry({
+            "ts": ts,
+            "src": "skill",
+            "type": prompt_type,
+            "mode": "global" if verdict == "global" else f"typed:{prompt_type}",
+            "run_mode": run_mode,
+            "outcome": "run",
+        })
 
     print(json.dumps({
         "hookSpecificOutput": {

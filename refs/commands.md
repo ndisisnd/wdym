@@ -10,10 +10,13 @@ Reached from `refs/protocol.md` Step 0 when the raw prompt carries a `/wdym`
 command flag. Each command executes and then **terminates** — never continue to
 Step 1, never enhance a prompt.
 
-**Self-check ordering:** for `--help`, `--status`, and `--set-mode`, run the
-**Step 0.5 self-check first** (an explicit `/wdym` command is exactly when a wounded
-install should be sensed and reported), then execute the command. `--init` is the
-installer itself — it does **not** run the self-check; it runs `refs/init.md`.
+**Self-check ordering:** for `--help`, `--status`, and `--set-mode`, probe the
+install first (slash commands get no hook block, so the hook's probe didn't run):
+`ls` the five required files (`refs/categories.json`, `refs/categories.default.json`,
+`refs/principles/principles-global.md`, `hooks/prompt-detect.py`,
+`hooks/telemetry-stats.py`); on any failure read `refs/heal.md` and follow it.
+Then execute the command. `--init` is the installer itself — no self-check; it
+runs `refs/init.md`.
 
 Dispatch on the first flag present, in this order:
 

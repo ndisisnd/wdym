@@ -46,6 +46,14 @@ CASES = [
     ("pass-slash",    "/wdym --status",                                              "suppressed", None),
     ("pass-short",    "fix it now",                                                  "suppressed", None),
     ("pass-follow",   "thanks, that looks great to me and works",                    "suppressed", None),
+    # Well-formed skip: already-structured prompts get no block either.
+    ("skip-wf-1",     "Write a 200-word overview of common dog breeds for first-time owners.",              "suppressed", None),
+    ("skip-wf-2",     "Review my code and list the top 3 issues by severity, each with a concrete fix.",    "suppressed", None),
+    ("skip-wf-3",     "Explain OAuth token refresh to a non-technical manager in 4 sentences.",             "suppressed", None),
+    # ...but one structure signal alone is not enough (stays scored):
+    ("skip-not-1",    "summarize this document into five bullet points",             "clear", "text-gen"),
+    # ...and noise cues disable the skip even with structure present:
+    ("skip-not-2",    "Please write a 200-word overview of dog breeds for first-time owners, thank you!",   None, None),
 ]
 
 

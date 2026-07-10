@@ -45,6 +45,13 @@
       "on_missing": "escalate"
     },
     {
+      "path": "refs/heal.md",
+      "role": "Self-check repair detail (read only when the hook reports a wound or no block appears)",
+      "required": true,
+      "restore_from": null,
+      "on_missing": "escalate"
+    },
+    {
       "path": "refs/authoring.md",
       "role": "How to add custom principles — reference only, not loaded at runtime",
       "required": false,

@@ -2,6 +2,7 @@
   "version": 2,
   "description": "Single source of truth for prompt-type detection. Consumed by hooks/prompt-detect.py (deterministic pre-scorer) and referenced by refs/detect.md (LLM adjudication). Categories are mutually exclusive; cues are curated to minimise cross-category overlap.",
   "threshold": { "min_score": 2, "min_lead": 1 },
+  "well_formed": { "enabled": true, "min_extra_signals": 2 },
   "categories": [
     {
       "id": "code",

@@ -11,12 +11,11 @@ principles to `principles-global.md`, domain principles to the matching
 `principles-<type>.md`. Follow the column format:
 
 - **Principle** — short noun phrase (≤4 words)
-- **Description** — what the principle adds to (or removes from) the prompt (≤20 words)
-- **When to apply** — one observable trigger condition (≤15 words)
+- **When to apply** — one observable trigger condition plus what the principle
+  adds or removes (≤25 words)
 - **Exemplar** — a compact `before → after` showing the principle's effect in isolation
 
 Type files also carry a **Type** column (`additive` / `subtractive`) used to rank
-against the global pool. When you add a principle, you may also append a matching
-worked example to that file's **Worked examples** section — keyed by the principle
-name (a `###` heading), combining it with 1–2 companions. Step 3 parses each worked
-example and attaches it to its principle for use in Step 5.
+against the global pool. Keep exemplars rich enough to stand alone — there is no
+per-principle worked-example section; the global file keeps only two combination
+patterns under **Worked examples**, loaded as flat reference context by Step 3.
