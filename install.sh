@@ -6,24 +6,24 @@
 # directory, writes the pref file, and wires the UserPromptSubmit hook so the
 # skill fires automatically on every prompt.
 #
-# Local is the default: everything lands under ./.claude/ and wdym fires only
-# in this project. Pass --global to install under ~/.claude/ instead, where it
-# fires across every project.
+# Global is the default: everything lands under ~/.claude/ and wdym fires
+# across every project. Pass --local to install under ./.claude/ instead,
+# where it fires only in the current project.
 #
 # The installer never needs the wdym repo on disk — it pulls a tarball into a
 # temp dir, installs from there, and cleans up. Run it from the project you
 # want wdym in, not from a clone of wdym.
 #
 # Usage:
-#   ./install.sh                       # local install into ./.claude
-#   ./install.sh --global              # global install into ~/.claude
+#   ./install.sh                       # global install into ~/.claude
+#   ./install.sh --local               # local install into ./.claude
 #   ./install.sh --dir path/to/project # local install into another project
 #   ./install.sh --tarball ./wdym.tar.gz
 #   ./install.sh --tarball https://example.com/wdym.tar.gz
 #
 # Or without cloning anything:
 #   curl -fsSL https://raw.githubusercontent.com/ndisisnd/wdym/main/install.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/ndisisnd/wdym/main/install.sh | bash -s -- --global
+#   curl -fsSL https://raw.githubusercontent.com/ndisisnd/wdym/main/install.sh | bash -s -- --local
 #
 # Environment:
 #   WDYM_TARBALL       default tarball URL or local .tar.gz path
@@ -48,7 +48,7 @@ usage() {
 }
 
 # --- Parse arguments ---------------------------------------------------------
-SCOPE="local"
+SCOPE="global"
 PROJECT_DIR=""
 TARBALL="${WDYM_TARBALL:-$DEFAULT_TARBALL}"
 FORCE=0
@@ -210,7 +210,38 @@ fi
 # The command carries the absolute skill path so it resolves from any cwd.
 HOOK_CMD="python3 \"$TARGET_DIR/hooks/prompt-detect.py\""
 
-hook_result=$(python3 - "$SETTINGS_PATH" "$HOOK_CMD" <<'PYEOF'
+# Local scope: if a wdym hook already fires globally for every project (any
+# prompt-detect.py, not just this TARGET_DIR's copy), wiring another one here
+# would fire the hook twice per prompt — Claude Code merges hook lists across
+# settings.json and settings.local.json, it doesn't dedupe by command text
+# across files. Local scope only needs its own pref.json to override the
+# global default (local-overrides-global pref resolution already handles
+# that), so skip the hook wire entirely in that case.
+SKIP_HOOK=0
+if [[ "$SCOPE" == "local" ]]; then
+  GLOBAL_SETTINGS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+  if [[ -f "$GLOBAL_SETTINGS" ]] && python3 - "$GLOBAL_SETTINGS" <<'PYEOF'
+import sys, json
+try:
+    with open(sys.argv[1]) as f:
+        settings = json.load(f)
+except (OSError, json.JSONDecodeError):
+    sys.exit(1)
+for group in settings.get("hooks", {}).get("UserPromptSubmit", []):
+    for h in group.get("hooks", []):
+        if "/hooks/prompt-detect.py" in h.get("command", ""):
+            sys.exit(0)
+sys.exit(1)
+PYEOF
+  then
+    SKIP_HOOK=1
+  fi
+fi
+
+if [[ "$SKIP_HOOK" -eq 1 ]]; then
+  hook_result="skipped_global"
+else
+  hook_result=$(python3 - "$SETTINGS_PATH" "$HOOK_CMD" <<'PYEOF'
 import sys, json, os
 
 settings_path = sys.argv[1]
@@ -244,12 +275,15 @@ with open(settings_path, "w") as f:
 
 print("added")
 PYEOF
-)
+  )
+fi
 
 if [[ "$hook_result" == "added" ]]; then
   info "hook wired into $SETTINGS_PATH (UserPromptSubmit)"
 elif [[ "$hook_result" == "already_present" ]]; then
   info "hook already present in $SETTINGS_PATH — no change"
+elif [[ "$hook_result" == "skipped_global" ]]; then
+  info "no change to $SETTINGS_PATH — a global wdym hook already fires in this project"
 else
   err "could not wire hook — check $SETTINGS_PATH manually"
   exit 1
@@ -260,7 +294,7 @@ ok "wdym installed and initialised ($SCOPE scope)"
 echo
 if [[ "$SCOPE" == "global" ]]; then
   echo "The skill fires automatically on every prompt across all projects."
-  echo "To scope it to one project instead, cd into it and run \"./install.sh\" (or \"/wdym --init --local\")."
+  echo "To scope it to one project instead, cd into it and run \"./install.sh --local\" (or \"/wdym --init --local\")."
 else
   echo "The skill fires automatically on every prompt in $PROJECT_DIR."
   echo "To install it for every project, run \"./install.sh --global\"."

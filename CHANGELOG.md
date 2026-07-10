@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented here.
 
+## [3] — BREAKING: installing wdym is global again — local override no longer double-fires the hook
+
+2026-07-10
+
+- `install.sh`:
+  - Changed: **BREAKING** — default scope reverts to global (`~/.claude/skills/wdym`, hook in `~/.claude/settings.json`); pass `--local` for the old per-project behaviour
+  - Fixed: a local install/reinstall now skips wiring its own hook when a global wdym hook already fires in the project, preventing `prompt-detect.py` from running twice per prompt
+- `refs/init.md`:
+  - Fixed: `/wdym --init --local` skips hook wiring under the same global-hook-already-present condition, writing only `pref.json` so local mode still overrides the global default without duplicating the hook
+- `README.md`: flip the installation section and flag table back to global-by-default, with `--local` documented as the override
+- `.claude/kermit/pref.json`: record changelog numbering state
+
 ## [2] — BREAKING: installing wdym no longer touches every project — it lands in the one you're in
 
 2026-07-10

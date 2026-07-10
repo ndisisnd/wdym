@@ -64,7 +64,22 @@ This is the file protocol Step 0 reads on every run.
 Target file: `SETTINGS_PATH` (`settings.local.json` for local scope,
 `settings.json` for global scope).
 
-The hook entry to install (note the **absolute** `SKILL_DIR` path so it resolves no
+**Local scope only — check the global settings file first.** Read
+`~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json`). If any
+`hooks.UserPromptSubmit[].hooks[].command` there matches
+`python3 ".*/hooks/prompt-detect\.py"` (any wdym install, not just this
+`SKILL_DIR`), a wdym hook already fires in every project on this machine —
+including this one. Skip hook wiring entirely: go straight to reporting
+`pref.json` in Step I5 as the only local artifact. Local scope exists to
+override the **pref** (`mode`), not to add a second hook — the global hook
+already fires here, and protocol Step 0's local-overrides-global pref
+resolution means the local `pref.json` alone is enough to change behaviour in
+this project. Wiring a second hook would fire prompt-detect.py twice per
+prompt (once from each settings file — Claude Code merges hook lists across
+scopes, it does not dedupe by command string across files).
+
+If no global hook is found (or scope is global), wire normally. The hook
+entry to install (note the **absolute** `SKILL_DIR` path so it resolves no
 matter what directory Claude runs from):
 
 ```json
@@ -103,6 +118,16 @@ Initialised wdym (global scope) in ~/.claude:
   • settings.json         — hook added (UserPromptSubmit → prompt-detect.py)
 The skill now fires automatically on your prompts. Switch modes with
 "/wdym --set-mode --flash".
+```
+
+When Step I4 skipped hook wiring because a global hook already covers this
+project, say so explicitly instead of claiming a hook was added, e.g.:
+
+```
+Initialised wdym (local scope) in ./.claude:
+  • wdym/pref.json        — created (mode: flash)
+  • settings.local.json   — hook not added (already fires here via the global install)
+This project now runs in flash mode; every other project keeps the global default.
 ```
 
 Then terminate.

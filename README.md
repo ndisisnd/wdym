@@ -19,20 +19,20 @@ Introducing `wdym`: a robust, comprehensive skill that translates your blabber i
 curl -fsSL https://raw.githubusercontent.com/ndisisnd/wdym/main/install.sh | bash
 ```
 
-The installer pulls a tarball into a temp dir — no clone, nothing left behind. **Local is the default**: the skill lands in `./.claude/skills/wdym`, the hook goes into `./.claude/settings.local.json`, and `wdym` fires only in this project.
+The installer pulls a tarball into a temp dir — no clone, nothing left behind. **Global is the default**: the skill lands in `~/.claude/skills/wdym`, the hook goes into `~/.claude/settings.json`, and `wdym` fires across every project you touch.
 
-Want it everywhere? Ask for it explicitly:
+Want it scoped to just this project? Ask for it explicitly:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ndisisnd/wdym/main/install.sh | bash -s -- --global
+curl -fsSL https://raw.githubusercontent.com/ndisisnd/wdym/main/install.sh | bash -s -- --local
 ```
 
-That installs into `~/.claude/` and wires `~/.claude/settings.json`, so every project you touch gets the treatment. Local always wins over global when both exist, so you can run it globally and still override per-project.
+That installs into `./.claude/` and wires `./.claude/settings.local.json`, so only this project gets the treatment. Local always wins over global when both exist, so you can run it globally and still override per-project.
 
 | Flag | What it does |
 |---|---|
-| _(none)_ | Local install into `./.claude` — the default |
-| `--global` | Install into `~/.claude` for all projects |
+| _(none)_ | Global install into `~/.claude` — the default |
+| `--local` | Local install into `./.claude` for this project |
 | `--dir <path>` | Local install into another project |
 | `--tarball <url\|path>` | Install from a specific tarball instead of `main` |
 | `--force` | Skip the "you're inside the wdym repo" guard |
