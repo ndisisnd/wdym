@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-07-18
+
+### [4] — wdym is public-ready: license, security policy, and an agent-facing index
+
+- `LICENSE.md`: add MIT license text (replaces the untracked Apache-2.0 LICENSE file)
+- `SECURITY.md`: add vulnerability reporting policy (GitHub private advisories) and scope
+- `llms.txt`: add an agent-facing repo index pointing to README, SKILL.md, ARCHITECTURE.md, and refs
+- `README.md`: add a figlet header, badges, and mermaid flow diagram; merge existing prose into the full doc structure with a completed FAQ and How-to-update section
+
 ## [3] — BREAKING: installing wdym is global again — local override no longer double-fires the hook
 
 2026-07-10
