@@ -1,12 +1,7 @@
 {
   "initialized": true,
   "init_commit": "e99cc6450d9b5723dea95eddc517d1142bf1096a",
-  "backfill": null,
   "auto_approve": true,
   "auto_commit": true,
-  "auto_merge": true,
-  "last_logged_commit": "1e2d444203513d15cff659ff4fa19f8639734f0e",
-  "changelog": {
-    "last_number": 3
-  }
+  "auto_merge": true
 }

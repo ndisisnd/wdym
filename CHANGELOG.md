@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 ## 2026-07-18
 
+### [5] — kermit's runtime bookkeeping no longer clutters the committed config
+
+- `.claude/kermit/pref.json`: drop the volatile `last_logged_commit`, `changelog.last_number`, and `backfill` fields — pref.json now holds only stable config
+- `.gitignore`: add `.claude/kermit/state.json`, where that volatile state now lives instead
+
 ### [4] — wdym is public-ready: license, security policy, and an agent-facing index
 
 - `LICENSE.md`: add MIT license text (replaces the untracked Apache-2.0 LICENSE file)
