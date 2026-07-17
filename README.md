@@ -36,7 +36,8 @@ wdym catches every prompt you submit in Claude Code, works out what you're tryin
 and rewrites it into a clearer version before your LLM sees it. You write the way you'd
 talk; wdym hands the model something it can actually work with.
 
-<div align="center"><img src="asset/readme.jpg"/></div>
+<div align="center"><img width="240" src="asset/readme.jpg"/></div>
+<br />
 
 It runs as a one-time install and then stays out of your way:
 
