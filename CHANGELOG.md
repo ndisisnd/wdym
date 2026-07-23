@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-07-23
+
+### [6] — Local runtime artifacts stay out of version control
+
+- `.gitignore`: ignore `.claude/.headroom_wrap_marker.json` (per-session PID/port marker) and `.tokensave` (local tokensave cache)
+
 ## 2026-07-18
 
 ### [5] — kermit's runtime bookkeeping no longer clutters the committed config

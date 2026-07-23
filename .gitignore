@@ -1,3 +1,5 @@
 .DS_Store
 audit/
 .claude/kermit/state.json
+.claude/.headroom_wrap_marker.json
+.tokensave
