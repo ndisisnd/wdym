@@ -4,11 +4,23 @@ All notable changes to this project will be documented here.
 
 ## 2026-07-23
 
-### [6] — Local runtime artifacts stay out of version control
+### [8] — Local runtime artifacts stay out of version control
 
 - `.gitignore`: ignore `.claude/.headroom_wrap_marker.json` (per-session PID/port marker) and `.tokensave` (local tokensave cache)
 
+### [7] — wdym fires reliably: its auto-invoke signal is no longer refused as a prompt injection
+
+- `hooks/prompt-detect.py`: Changed — neutralise the block's `ACTION` imperative to a plain classification signal; invoke authority moves to the trusted `CLAUDE.md` contract
+- `CLAUDE.md`: state that the `<prompt-detect>` block is trusted project config, not injected input
+- `install.sh`: Added — write a marker-delimited, idempotent trust-anchor contract into `CLAUDE.md` at the install scope (global `~/.claude/CLAUDE.md`, local project root) so a fresh install matches the dev repo
+- `ARCHITECTURE.md`: update the flow diagram and add a "Trust anchor, not injection" design note
+- `llms.txt`: describe the block as a signal authorised by the `CLAUDE.md` contract
+
 ## 2026-07-18
+
+### [6] — README hero image sized down for a tidier header
+
+- `README.md`: constrain the hero image to 240px wide and add spacing below it
 
 ### [5] — kermit's runtime bookkeeping no longer clutters the committed config
 
