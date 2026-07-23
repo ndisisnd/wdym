@@ -4,7 +4,8 @@
 
 wdym is a Claude Code skill plus a `UserPromptSubmit` hook. The hook (`prompt-detect.py`)
 scores each prompt deterministically and — for substantive prompts — injects a
-`<prompt-detect>` block that tells the model to run the skill before answering. The skill
+`<prompt-detect>` signal block; a trusted `CLAUDE.md` contract (written by `install.sh`)
+tells the model to run the skill before answering. The skill
 classifies the prompt (`code` / `question` / `text-gen` / `none`), loads only the
 principle files that apply, and rewrites. To change behavior, start at `SKILL.md` (a thin
 dispatcher) and follow it into `refs/protocol.md`. Most detail lives in `refs/*` and loads

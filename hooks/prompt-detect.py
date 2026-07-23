@@ -16,8 +16,11 @@ exit 0 with no output.
 
 Passthrough prompts (slash command / <=5 words / conversational follow-up) get
 NO block at all — only a telemetry line. This makes the contract binary: block
-present => substantive prompt => the ACTION line in the block instructs the
-model to invoke the wdym skill. Block absent => respond normally.
+present => substantive prompt => invoke the wdym skill. The block is a neutral
+classification signal; the invoke instruction itself lives in CLAUDE.md (a
+trusted, user-installed contract), so an override-shaped imperative in the block
+can't be mistaken for a prompt injection and refused. Block absent => respond
+normally.
 
 Token-efficiency duties absorbed from the skill (each deletes an LLM tool call,
 i.e. a full-context API round trip):
@@ -219,9 +222,13 @@ def is_forced(cat: dict, text: str) -> bool:
     return score_category(cat, text) > 0
 
 
+# A neutral signal, not an imperative. The trusted invoke instruction lives in
+# CLAUDE.md (installed by init); the block only reports that a classification is
+# available. Override-shaped wording here ('ACTION: ... BEFORE processing this
+# prompt') read as a prompt injection through the low-trust hook channel and got
+# refused, silently skipping the skill — so the authority moved to CLAUDE.md.
 ACTION_LINE = (
-    'ACTION: invoke the "wdym" skill via the Skill tool BEFORE processing '
-    "this prompt."
+    "signal: wdym classification available — invoke per the CLAUDE.md contract."
 )
 
 

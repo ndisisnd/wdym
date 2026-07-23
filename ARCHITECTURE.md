@@ -15,7 +15,7 @@ User types a prompt and submits
 │    Score prompt against categories.json (keyword/regex)         │
 │    Emit minimal <prompt-detect> block: verdict (+ type on       │
 │      clear, + scores/candidates on ambiguous)                   │
-│    Block ends with ACTION line → model invokes the wdym skill   │
+│    Block is a signal; CLAUDE.md → model invokes skill           │
 │    Append src:"hook" line → telemetry.jsonl                     │
 └─────────────────────────────────────────────────────────────────┘
              │
@@ -125,6 +125,16 @@ Degradation keeps a run alive but never closes the wound — it would run degrad
 silently. The Step 0.5 self-check adds the missing half (sense → repair → escalate) once
 per session so the skill recovers. The telemetry stream is deliberately outside this
 layer: append-only, best-effort, never healed, so it can never block or alter a run.
+
+**Trust anchor, not injection.** The `<prompt-detect>` block arrives through the hook's
+`additionalContext` channel — the same low-trust surface as tool output and retrieved
+text. An override-shaped imperative there (`ACTION: invoke … BEFORE processing`) reads as
+a prompt injection and was sometimes refused, silently skipping the skill. So the block
+carries only a neutral classification *signal*; the invoke instruction itself lives in
+`CLAUDE.md`, which the model treats as trusted user configuration. `install.sh` writes a
+marker-delimited, idempotent contract into `CLAUDE.md` at the install scope (global
+`~/.claude/CLAUDE.md`, local project root), so a fresh install carries the same authority
+the dev repo does rather than leaving the block to fend for itself.
 
 ## Run Modes
 
