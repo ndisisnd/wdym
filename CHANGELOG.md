@@ -4,6 +4,14 @@ All notable changes to this project will be documented here.
 
 ## 2026-07-30
 
+### [10] — Principles catch up to modern models; writing prompts no longer read as code
+
+- `refs/principles/principles-global.md`: Removed — role-assignment, few-shot, and chain-of-thought rows (no measurable effect on frontier models); Changed — prefilling folded into output-format specification, context priming resolves referents from the session before placeholdering, five pressure/folklore rows collapsed into one "incentive & pressure stripping", politeness folded into verbosity trimming; Added — scope bounding for agent-driven change requests
+- `refs/principles/principles-code.md`: existing-code context now points at the file/function instead of pasting code — the agent reads it itself
+- `refs/principles/principles-question.md`: reasoning elicitation narrowed to display-only (models already reason internally)
+- `refs/categories.json`: demote `script`/`compile` from bare keywords to software-only phrases and add writing/business negatives (essay, video, resume, …) so a lone polysemous word can't classify a writing prompt as code
+- `refs/categories.default.json`: same taxonomy change, kept in sync
+
 ### [9] — You choose whether wdym fires on every prompt or only when asked
 
 - `hooks/prompt-detect.py`: read the new `activation` preference before anything else and exit silently when it is `on-demand`, making the pref the single master switch; fix a `re.split` deprecation warning on Python 3.13

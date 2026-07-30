@@ -12,7 +12,7 @@ impact-ordered, highest first (tie-break only).
 
 | Principle | Type | When to apply | Exemplar |
 |-----------|------|---------------|----------|
-| Existing-code context | additive | Prompt says "it"/"this"/"the project" without showing the code — reference the actual function, file, or framework the change must fit | `fix the bug in it` → `Fix the off-by-one in the paginate() function below — it drops the last record when total isn't a multiple of page_size: …` |
+| Existing-code context | additive | Prompt says "it"/"this"/"the project" without identifying the code — point at the file, function, or symptom (the agent reads the code itself; don't paste it) | `fix the bug in it` → `Fix the off-by-one in paginate() in api/list.py — it drops the last record when total isn't a multiple of page_size.` |
 | Verification & done criteria | additive | A change is requested with no way to confirm it worked — state what done looks like (tests pass, behaviour observed) | `add retry logic to the fetcher` → `Add retry logic to the fetcher — exponential backoff, max 3 attempts. Done = existing tests pass, plus a new test showing a transient failure succeeds on retry.` |
 | I/O contract | additive | Interface shape left open — state inputs, outputs, types, signature | `a function to sort users` → `Write def sort_users(users: list[User]) -> list[User], sorted by signup_date descending, None dates last; do not mutate the input.` |
 | Edge cases & errors | additive | Prompt asks only for the happy path — require empty/invalid/boundary handling and failure behaviour | `parse the amount from the string` → `Parse "$1,299.00"-style strings into a Decimal; handle separators and negatives in parentheses, raise ValueError on anything unparseable.` |

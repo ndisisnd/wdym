@@ -10,14 +10,14 @@
       "intent": "Produce, modify, debug, or explain software and code.",
       "principles_section": "Coding",
       "keywords": [
-        "function", "def ", "class", "method", "variable", "compile", "debug",
+        "function", "def ", "class", "method", "variable", "debug",
         "bug", "stack trace", "traceback", "exception", "refactor", "implement",
         "sql", "algorithm", "unit test", "async", "await", "import", "module",
         "dependency", "npm", "pip", "regex", "deploy", "runtime",
         "code", "fix", "error", "test", "tests", "build", "lint", "typecheck",
         "crash", "broken", "failing", "file", "repo", "repository", "branch",
         "commit", "component", "endpoint", "database", "schema", "migrate",
-        "migration", "config", "script", "cli", "terminal", "install",
+        "migration", "config", "cli", "terminal", "install",
         "package", "library", "framework", "backend", "frontend", "server",
         "readme", "review", "typeerror", "undefined",
         "python", "javascript", "typescript", "rust", "golang", "java", "c++",
@@ -28,13 +28,18 @@
       ],
       "phrases": [
         "write a function", "write code", "fix this code", "throws an error",
-        "not working", "doesn't work"
+        "not working", "doesn't work",
+        "shell script", "bash script", "python script", "run the script",
+        "compile error", "won't compile"
       ],
       "force_regex": [
         "```",
         "\\b[\\w./-]+\\.(py|js|ts|tsx|jsx|rs|go|java|cpp|cc|rb|php|swift|kt|sql|sh|html|css|yaml|yml)\\b"
       ],
-      "negative": []
+      "negative": [
+        "essay", "poem", "story", "blog post", "cover letter", "press release",
+        "video", "screenplay", "podcast", "sales call", "resume", "newsletter"
+      ]
     },
     {
       "id": "question",
