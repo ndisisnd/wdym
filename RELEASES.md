@@ -2,6 +2,30 @@
 
 What's new for you, release by release.
 
+## v1.1.0 — 2026-07-30
+
+> You now control when wdym fires — on every prompt automatically, or only when you ask —
+> and its rewriting playbook has been rebuilt around what actually improves results with
+> today's AI models, dropping folklore that no longer helps.
+
+### ✨ New
+- Choose your activation style at install time or with `/wdym --init`: have wdym fire on
+  every prompt automatically, or keep it silent until you call `/wdym` yourself.
+
+### 📈 Improved
+- Rewrites are modernised for current AI models: tricks that no longer help (role-play
+  openers, worked examples, "think step by step" prodding, threats and bribes) are gone,
+  and change requests now get clear boundaries so the agent touches only what you asked for.
+- When you say "this" or "that", the rewrite now fills in what you meant from the
+  conversation instead of leaving a blank for you to complete.
+
+### 🐛 Fixed
+- wdym now fires reliably — previously the assistant could mistake wdym's own trigger
+  signal for a suspicious injected instruction and refuse to run it.
+- Writing and business prompts are no longer treated as coding tasks just because they
+  contain a word like "script" or "compile" — a video script or a compiled list of
+  competitors now gets writing guidance, not code guidance.
+
 ## v1.0.0 — 2026-07-18
 
 > The first public release of wdym. Install with one command, and it now covers every
