@@ -6,32 +6,44 @@ type: reference
 
 # Heal Protocol
 
-Reached from protocol Step 0.5 when something is wounded: no `<prompt-detect>`
-block, `verdict: degraded`, or a `selfcheck:` failure line in the block. Runs at
-most once per session. Two governing rules: **a missing file with a restore
+Reached from protocol Step 0.5 when something is wounded: `verdict: degraded`, a
+`selfcheck:` failure line in the block, or no `<prompt-detect>` block **while
+`activation` is `hook`**. A missing block under `activation: on-demand` is the
+expected state and never reaches this file. Runs at most once per session. Two governing rules: **a missing file with a restore
 source is recreated** (non-destructive); **a present-but-invalid file that may
 hold user edits is escalated, never clobbered**. Read `refs/manifest.json` when
 you need the full repair policy or schemas. Every repair is idempotent.
 
 **Check 1 — Pref integrity.** Pref file (local `.claude/wdym/pref.json`, else
 `~/.claude/wdym/pref.json`) exists but is unparseable, or `mode` is not
-`comprehensive`/`flash` → overwrite that path with `{"mode": "comprehensive"}`.
-Record `pref restored`. No pref at either scope → not a wound (created only by
+`comprehensive`/`flash` → rewrite that path with `mode: "comprehensive"`,
+preserving a valid `activation`. If `activation` is present but not
+`hook`/`on-demand` → set it to `on-demand` (the inert setting; never escalate a
+user into an automatic hook they did not choose). Record `pref restored`. A
+**missing** `activation` key is not a wound — it predates the key and correctly
+means on-demand. No pref at either scope → not a wound (created only by
 `--init`).
 
-**Check 2 — Hook health.**
+**Check 2 — Hook health.** Assessed **only when `activation` is `hook`**. Under
+`on-demand` the hook is meant to be absent or silent, so no finding here is a
+wound: record nothing, escalate nothing, and skip to Check 3. This gate is what
+keeps a deliberately manual install from being diagnosed as a broken automatic
+one.
+
 - Block present with `verdict: degraded` → hook ran but its config is broken; go
   to Check 3.
-- **No block** → read the resolved settings file (local `settings.local.json`,
-  else global `settings.json`) for a `hooks.UserPromptSubmit` entry whose command
-  contains `prompt-detect.py`:
+- **No block** (and `activation: hook`) → read the resolved settings file (local
+  `settings.local.json`, else global `settings.json`) for a
+  `hooks.UserPromptSubmit` entry whose command contains `prompt-detect.py`:
   - Entry present **and** script path exists → wired but silent (e.g. `python3`
     unavailable). Record `hook silent`; do not repair.
   - Entry present **but** script path missing → stale path (skill dir moved).
     Rewrite the command to `python3 "<SKILL_DIR>/hooks/prompt-detect.py"` using
-    the running skill's absolute root (merge rules: `refs/init.md` Step I4).
+    the running skill's absolute root (merge rules: `refs/init.md` Step I5).
     Record `hook rewired`.
-  - No matching entry → not installed. Escalate: hint `/wdym --init`.
+  - No matching entry → pref says `hook` but nothing is wired: the two halves of
+    the setting disagree. Escalate: hint `/wdym --init --hook` to wire it, or
+    `/wdym --init --on-demand` to make the pref match reality.
   - Settings unparseable → escalate, do not clobber.
 
 **Check 3 — `categories.json` integrity.**

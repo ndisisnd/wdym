@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "description": "Known-good manifest for the wdym skill. The self-check (protocol Step 0.5) reads this ONLY when its ls existence probe or a check fails — the healthy path never loads it. Repairs are idempotent and non-destructive: a MISSING file with a restore_from source is recreated; a PRESENT-but-invalid file that may hold user edits is escalated, never clobbered.",
   "required_files": [
     {
@@ -114,10 +114,18 @@
   "pref_schema": {
     "path_local": "$CLAUDE_PROJECT_DIR/.claude/wdym/pref.json",
     "path_global": "~/.claude/wdym/pref.json",
-    "required_keys": ["mode"],
-    "enums": { "mode": ["comprehensive", "flash"] },
-    "default": { "mode": "comprehensive" },
-    "on_missing": "noop_default_comprehensive",
+    "required_keys": ["mode", "activation"],
+    "enums": {
+      "mode": ["comprehensive", "flash"],
+      "activation": ["hook", "on-demand"]
+    },
+    "key_roles": {
+      "mode": "HOW a run behaves once it fires — comprehensive gates for approval, flash submits immediately",
+      "activation": "WHEN the skill fires — hook runs it on every prompt via UserPromptSubmit, on-demand runs it only when invoked via /wdym"
+    },
+    "default": { "mode": "comprehensive", "activation": "hook" },
+    "on_missing": "noop_default_comprehensive_on_demand",
+    "on_missing_activation": "default_on_demand — a pref predating the activation key never implied an installed hook, so absence must not trigger a hook-health wound",
     "on_invalid": "restore_default"
   },
   "categories_schema": {
@@ -130,6 +138,7 @@
     "settings_key": "hooks.UserPromptSubmit",
     "command_template": "python3 \"<SKILL_DIR>/hooks/prompt-detect.py\"",
     "match_substring": "prompt-detect.py",
+    "governed_by": "pref_schema.activation — the wiring is the mechanism, the pref is the switch. Hook health is only assessed when activation is `hook`; under `on-demand` an absent hook is the expected state, not a wound.",
     "on_path_stale": "rewire",
     "on_unwired": "escalate_init",
     "on_settings_unparseable": "escalate"

@@ -1,10 +1,11 @@
 ---
 name: wdym
 description: >
-  Prompt rewriter that fires automatically on UserPromptSubmit via a hook-injected
-  <prompt-detect> block. Detects prompt type (code, question, text-gen) and rewrites
-  using 2–3 matched principles; flash mode runs immediately, comprehensive gates for
-  approval. Manage with /wdym --init, --status, --set-mode, --help.
+  Prompt rewriter with two activation modes — hooked (fires on every prompt via a
+  UserPromptSubmit <prompt-detect> block) or on-demand (invoked via /wdym or when
+  asked to improve a prompt). Detects prompt type (code, question, text-gen) and
+  rewrites using 2–3 matched principles; flash mode runs immediately, comprehensive
+  gates for approval. Manage with /wdym --init, --status, --set-mode, --help.
 allowed-tools:
   - AskUserQuestion
   - Read
@@ -15,9 +16,16 @@ allowed-tools:
 
 # wdym
 
-Fires automatically on `UserPromptSubmit`: `<prompt-detect>` block present ⇒ run
-this skill; absent ⇒ respond normally. Also triggers on "improve / enhance /
-rewrite this prompt".
+**Activation** is set by `pref.json`'s `activation` key and chosen at
+`/wdym --init`:
+
+- `hook` — fires on `UserPromptSubmit`. `<prompt-detect>` block present ⇒ run
+  this skill; absent ⇒ respond normally.
+- `on-demand` — no hook fires; prompts arrive with no block, which the protocol
+  handles via its no-hook fallback paths.
+
+Either way, an explicit `/wdym <prompt>` or a request to "improve / enhance /
+rewrite this prompt" runs the skill.
 
 **Follow `refs/protocol.md` end-to-end** (Steps 0–8). If the prompt carries a
 `/wdym` command flag (`--init` / `--help` / `--status` / `--set-mode`), follow

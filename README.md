@@ -56,6 +56,11 @@ and after that it's automatic.
 
 ## Installation
 
+Two ways in. The installer does everything in one shot; `npx skills add` fits the
+skills ecosystem you may already be using, and takes one extra command to finish.
+
+### Option 1 — the installer _(recommended)_
+
 `cd` into the project you want `wdym` in, then:
 
 ```bash
@@ -80,6 +85,8 @@ it globally and still override per-project.
 |---|---|
 | _(none)_ | Global install into `~/.claude` — the default |
 | `--local` | Local install into `./.claude` for this project |
+| `--hook` | Fire on every prompt — the default |
+| `--on-demand` | Install inert; run only via `/wdym`, no hook wired |
 | `--dir <path>` | Local install into another project |
 | `--tarball <url\|path>` | Install from a specific tarball instead of `main` |
 | `--force` | Skip the "you're inside the wdym repo" guard |
@@ -88,6 +95,43 @@ Both scopes write your `pref.json` (where your run mode lives) and wire up the
 `UserPromptSubmit` detector in one shot. It's idempotent — run it again any time and it
 won't clobber your prefs. Already have the files on disk and just want to rewire?
 `/wdym --init` does the init half on its own.
+
+### Option 2 — `npx skills add`
+
+If you already manage skills with the [skills CLI](https://github.com/vercel-labs/skills),
+wdym installs like any other package:
+
+```bash
+npx skills add ndisisnd/wdym          # this project
+npx skills add ndisisnd/wdym -g       # every project (user-level)
+```
+
+Then finish the setup:
+
+```
+/wdym --init
+```
+
+**That second step isn't optional.** `skills add` delivers the skill files and stops
+there — it's a package manager, not wdym's installer. It doesn't know wdym has a hook to
+wire, a `pref.json` to write, or a `CLAUDE.md` contract to install. Without `--init` you
+get a skill that only answers to `/wdym` and never fires on its own.
+
+`/wdym --init` asks you the same two questions the installer takes as flags — scope
+(local or global) and activation (hook or on-demand) — then writes all three pieces.
+
+| | Installer | `npx skills add` |
+|---|---|---|
+| Skill files | ✅ | ✅ |
+| `pref.json`, hook, `CLAUDE.md` contract | ✅ | via `/wdym --init` |
+| Updates | re-run the installer | `npx skills update` |
+| What lands in the skill dir | curated runtime files only | the whole repo, `install.sh` and `tests/` included |
+| Also writes | nothing else | `skills-lock.json` at your project root |
+
+Both land in the same place — `.claude/skills/wdym` for project scope, `~/.claude/skills/wdym`
+for global — so pick whichever fits your workflow. `/wdym --init` is idempotent across both.
+
+### Confirming it works
 
 To confirm it's wired up, submit any normal prompt: in the default mode you'll see the
 rewrite and a gate before it runs.
@@ -149,8 +193,15 @@ these into a prompt _(or run them standalone)_:
 curl -fsSL https://raw.githubusercontent.com/ndisisnd/wdym/main/install.sh | bash
 ```
 
-**Rewire an install you already have on disk** — after editing settings by hand, or if the
-hook came unwired — with `/wdym --init`, which redoes the init half without reinstalling.
+**If you installed with `npx skills add`**, update through the same CLI:
+
+```bash
+npx skills update wdym
+```
+
+**Rewire an install you already have on disk** — after editing settings by hand, if the
+hook came unwired, or after a `skills update` — with `/wdym --init`, which redoes the init
+half without reinstalling.
 
 ## FAQ
 

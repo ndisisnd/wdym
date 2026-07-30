@@ -14,6 +14,12 @@ tell "hook ran but config is broken" apart from "hook never ran" and heal the
 config. Only failures that leave nothing to report (bad stdin, empty prompt)
 exit 0 with no output.
 
+Activation: pref.json's `activation` key is the master switch. `hook` = fire on
+every prompt (this scorer runs); `on-demand` = the skill runs only when invoked
+via /wdym, and this scorer exits silently even if it is still wired. The pref
+outranks the settings wiring so the toggle is instant and the two can never
+disagree. `--init` keeps them in sync by wiring/unwiring UserPromptSubmit.
+
 Passthrough prompts (slash command / <=5 words / conversational follow-up) get
 NO block at all — only a telemetry line. This makes the contract binary: block
 present => substantive prompt => invoke the wdym skill. The block is a neutral
@@ -106,29 +112,60 @@ def log_telemetry(record: dict) -> None:
         pass
 
 
-def resolve_run_mode():
-    """Resolve pref.json local-first (same order as telemetry_path). Returns
-    (run_mode, pref_wound): mode defaults to 'comprehensive'; pref_wound is a
-    selfcheck note when a pref exists but is invalid (skill heals via heal.md).
-    """
+def pref_candidates():
+    """Pref file paths in resolution order (same order as telemetry_path):
+    local scope overrides global."""
     candidates = []
     proj = os.environ.get("CLAUDE_PROJECT_DIR")
     if proj:
         candidates.append(os.path.join(proj, ".claude", "wdym", "pref.json"))
     candidates.append(os.path.join(os.getcwd(), ".claude", "wdym", "pref.json"))
     candidates.append(os.path.expanduser("~/.claude/wdym/pref.json"))
-    for p in candidates:
+    return candidates
+
+
+def read_pref():
+    """Load the first pref.json that exists, local-first. Returns (pref, wound):
+    pref is the parsed dict (empty when absent), wound a selfcheck note when a
+    pref exists but is unusable (the skill heals it via heal.md)."""
+    for p in pref_candidates():
         if not os.path.isfile(p):
             continue
         try:
             with open(p, "r", encoding="utf-8") as fh:
-                mode = json.load(fh).get("mode")
-            if mode in ("comprehensive", "flash"):
-                return mode, None
-            return "comprehensive", "pref invalid"
+                pref = json.load(fh)
+            if not isinstance(pref, dict):
+                return {}, "pref invalid"
+            return pref, None
         except Exception:
-            return "comprehensive", "pref unparseable"
-    return "comprehensive", None
+            return {}, "pref unparseable"
+    return {}, None
+
+
+def resolve_activation(pref):
+    """Resolve `activation` (`hook` · `on-demand`) — the master switch for
+    whether wdym fires on every prompt or only when invoked.
+
+    The pref outranks the settings wiring: an `on-demand` pref silences this
+    hook even while it is still wired, so toggling activation never requires
+    settings surgery to take effect and the skill's self-check never has to
+    referee a disagreement between the two. Absent key => `on-demand`, matching
+    the pre-activation default (no pref ever implied an installed hook)."""
+    activation = pref.get("activation", "on-demand")
+    if activation not in ("hook", "on-demand"):
+        return "on-demand", "activation invalid"
+    return activation, None
+
+
+def resolve_run_mode(pref):
+    """Resolve `mode` (`comprehensive` · `flash`) — how a run behaves once it
+    fires. Defaults to 'comprehensive'; an out-of-enum value is a wound."""
+    mode = pref.get("mode")
+    if mode is None:
+        return "comprehensive", None
+    if mode in ("comprehensive", "flash"):
+        return mode, None
+    return "comprehensive", "pref invalid"
 
 
 SELFCHECK_FILES = (  # relative to the skill root; categories.json has its own path
@@ -181,7 +218,7 @@ def is_well_formed(text: str, cfg: dict) -> bool:
     wf = cfg.get("well_formed", {})
     if not wf.get("enabled", False):
         return False
-    first = re.split(r"[^a-z']+", text.strip(), 1)[0]
+    first = re.split(r"[^a-z']+", text.strip(), maxsplit=1)[0]
     if first not in IMPERATIVE_OPENERS:
         return False
     if any(cue_match(c, text) for c in NOISE_CUES):
@@ -264,7 +301,8 @@ def emit_degraded(reason: str, global_flag: bool, raw: str = "") -> int:
         "type": "none",
         "passthrough": is_passthrough(raw),
     })
-    run_mode, _ = resolve_run_mode()
+    pref, _ = read_pref()
+    run_mode, _ = resolve_run_mode(pref)
     lines = [
         '<prompt-detect source="hook" deterministic="true" verdict="degraded">',
         f"reason: {reason}",
@@ -293,6 +331,18 @@ def main() -> int:
     raw = payload.get("prompt", "")
     if not isinstance(raw, str) or not raw.strip():
         return 0
+
+    # Activation gate — the master switch, checked before any other work. An
+    # `on-demand` pref means wdym runs only when invoked (/wdym or an explicit
+    # "improve this prompt"), so this hook stays completely silent even while
+    # wired: no block, no telemetry, nothing for the skill to heal. Reading the
+    # pref here rather than relying on the hook being unwired makes the toggle
+    # instant and keeps pref and settings from ever contradicting each other.
+    pref, pref_wound = read_pref()
+    activation, activation_wound = resolve_activation(pref)
+    if activation == "on-demand":
+        return 0
+    pref_wound = pref_wound or activation_wound
 
     # Passthrough prompts get no block — telemetry only. Block present is the
     # binary invoke signal; suppressing it here keeps slash commands and small
@@ -381,7 +431,8 @@ def main() -> int:
     # where they seed LLM adjudication. run_mode is the pref pre-resolved;
     # selfcheck appears only on failure; `telemetry: logged` tells the skill
     # its Step 8 line is already written.
-    run_mode, pref_wound = resolve_run_mode()
+    run_mode, mode_wound = resolve_run_mode(pref)
+    pref_wound = pref_wound or mode_wound
     root = os.path.dirname(here)
     missing = selfcheck(root)
     wounds = missing + ([pref_wound] if pref_wound else [])

@@ -26,22 +26,35 @@ Otherwise resolve `run_mode` (`comprehensive` · `flash`):
    or unparseable at both scopes → `comprehensive` (do **not** create the file;
    only `--init` does).
 
+The same pref carries `activation` (`hook` · `on-demand`) — *when* the skill
+fires, as opposed to `mode`'s *how it behaves once it does*. It needs no
+resolution on this path: reaching the protocol at all means the skill is already
+running. It matters only to Step 0.5, which reads it to tell an expected silence
+apart from a broken hook. Absent key → `on-demand`. Change it with
+`/wdym --init`, never by editing the pref alone — the hook wiring has to move
+with it.
+
 Inline directives override (anywhere in the text): `--flash` /
-`--comprehensive` → set `run_mode` accordingly, persist `{"mode": "<target>"}`
-to the resolved pref path, strip the flag, emit `Run mode: <target>
-(persisted).`, continue. Cache `run_mode` for the session. `comprehensive` runs
+`--comprehensive` → set `run_mode` accordingly, persist it to the resolved pref
+path by **updating the `mode` key in place** (read, set one key, write back —
+never rewrite the file as `{"mode": "<target>"}`, which would drop `activation`
+and silently revert the user to on-demand), strip the flag, emit `Run mode:
+<target> (persisted).`, continue. Cache `run_mode` for the session. `comprehensive` runs
 the Step 6 gate; `flash` submits immediately at Step 7.
 
 ## Step 0.5 — Self-check
 
-Once per session (cache `self_check_done`). The hook performs the file probe on
-every prompt:
+Once per session (cache `self_check_done`). Under `activation: hook` the hook
+performs the file probe on every prompt; under `on-demand` nothing probes, so
+there is nothing to diagnose.
 
 - Block present, no `selfcheck:` line, verdict ≠ `degraded` → **healthy, skip**
   (the normal path — nothing to read, nothing to emit).
-- Block carries `selfcheck: <failures>`, or `verdict: degraded`, or **no block
-  on a substantive prompt** → read `refs/heal.md` and follow it (sense → repair
-  → escalate), then continue.
+- **No block** → read `activation` (Step 0): `on-demand` → **healthy, skip**;
+  block absence is the expected state, not a wound. `hook` on a substantive
+  prompt → the hook should have spoken and did not; read `refs/heal.md`.
+- Block carries `selfcheck: <failures>` or `verdict: degraded` → read
+  `refs/heal.md` and follow it (sense → repair → escalate), then continue.
 
 ## Step 1 — Classify prompt
 

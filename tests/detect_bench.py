@@ -41,7 +41,14 @@ CASES = [
     ("textgen-3",     "make this paragraph shorter and less formal",                 "clear", "text-gen"),
     ("mixed-summary", "summarize what this python script does",                      "clear", "code"),
     ("meta-zero",     "recommend improvements to make this whole setup more robust", "global", None),
-    ("tie-genuine",   "review my essay and improve the flow of the argument",        "ambiguous", None),
+    ("essay-negate",  "review my essay and improve the flow of the argument",        "clear", "text-gen"),  # code "review" cancelled by "essay" negative
+    ("tie-genuine",   "can you explain this error to me please",                     "ambiguous", None),
+    # Polysemous code cues must not hijack writing/business prompts:
+    ("poly-script-1", "write a script for our product demo video",                   "global", None),
+    ("poly-script-2", "help me draft a script for the sales call tomorrow",          "clear", "text-gen"),
+    ("poly-compile",  "compile a list of our top competitors and their pricing",     "global", None),
+    ("poly-build",    "build an audience for the newsletter over the next quarter",  "global", None),
+    ("poly-fix",      "fix the tone of my resume so it sounds less stiff",           "global", None),
     # Passthrough: no block at all.
     ("pass-slash",    "/wdym --status",                                              "suppressed", None),
     ("pass-short",    "fix it now",                                                  "suppressed", None),
@@ -65,7 +72,7 @@ def run_case(prompt: str, env) -> dict:
     if not out:
         return {"verdict": "suppressed"}
     ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-    parsed = {"action": "ACTION:" in ctx}
+    parsed = {}
     for line in ctx.splitlines():
         for key in ("verdict", "prompt_type", "scores", "candidates"):
             if line.startswith(key + ":"):
@@ -78,7 +85,12 @@ def run_case(prompt: str, env) -> dict:
 
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
-        os.makedirs(os.path.join(tmp, ".claude", "wdym"))
+        wdym_dir = os.path.join(tmp, ".claude", "wdym")
+        os.makedirs(wdym_dir)
+        # activation defaults to on-demand, which suppresses every block —
+        # the bench tests the scorer, so opt the throwaway install into hook.
+        with open(os.path.join(wdym_dir, "pref.json"), "w") as f:
+            json.dump({"mode": "comprehensive", "activation": "hook"}, f)
         env = dict(os.environ, CLAUDE_PROJECT_DIR=tmp)
         failures = []
         deterministic = 0
@@ -91,8 +103,6 @@ def main() -> int:
                 scored += 1
                 if v in ("clear", "global"):
                     deterministic += 1
-                if not r.get("action"):
-                    failures.append(f"{label}: block missing ACTION line")
             ok = True
             if want_v is not None and v != want_v:
                 ok = False

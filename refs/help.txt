@@ -1,17 +1,26 @@
 wdym — prompt rewriter for Claude Code
 
-Intercepts every substantive prompt, applies structured rewrite principles to make
-it sharper and better scoped, then submits the enhanced version. Fires automatically
-via a UserPromptSubmit hook — no slash command needed. Detects prompt type (code,
-question, text-gen) and loads matching principles on top of the universal base.
+Applies structured rewrite principles to a prompt to make it sharper and better
+scoped, then submits the enhanced version. Detects prompt type (code, question,
+text-gen) and loads matching principles on top of the universal base. Runs either
+on every prompt (hook) or only when you ask for it (on-demand) — your choice at
+/wdym --init.
 
 COMMANDS
 ────────────────────────────────────────────────────────────────────
-  /wdym --init                       Bootstrap: install pref file + wire the hook
+  /wdym <prompt>                     Rewrite this prompt now
+  /wdym --init                       Set up or reconfigure: scope + activation
   /wdym --status  (--stats)          Usage report: prompts seen, transform rate, by-type
   /wdym --set-mode --flash           Permanently switch to flash mode
   /wdym --set-mode --comprehensive   Permanently switch to comprehensive mode
   /wdym --help                       Show this message
+
+INIT FLAGS  (skip the matching question)
+────────────────────────────────────────────────────────────────────
+  --global                           Apply to all projects (~/.claude)
+  --local                            Apply to this directory only (./.claude)
+  --hook                             Fire automatically on every prompt
+  --on-demand                        Fire only when invoked
 
 INLINE FLAGS  (drop anywhere in a prompt)
 ────────────────────────────────────────────────────────────────────
@@ -19,7 +28,20 @@ INLINE FLAGS  (drop anywhere in a prompt)
   --comprehensive                    Switch to comprehensive mode and continue
   --global                           Force universal principles, skip type detection
 
-RUN MODES
+ACTIVATION  (when it fires)
+────────────────────────────────────────────────────────────────────
+  hook                               Runs on every substantive prompt via a
+                                     UserPromptSubmit hook. Skips slash commands,
+                                     prompts of 5 words or fewer, follow-ups, and
+                                     prompts already well-formed enough that a
+                                     rewrite would not improve them.
+  on-demand                          Runs only via /wdym or when you ask to
+                                     improve/enhance/rewrite a prompt.
+
+  Change it with "/wdym --init --hook" or "/wdym --init --on-demand" — this moves
+  the hook wiring too. Editing pref.json by hand only changes half the setting.
+
+RUN MODES  (how it behaves once it fires)
 ────────────────────────────────────────────────────────────────────
   comprehensive  (default)           Shows only the rewritten prompt; one gate:
                                      run enhanced / run original / edit

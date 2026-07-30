@@ -22,8 +22,19 @@ Dispatch on the first flag present, in this order:
 
 ## `--init`
 
-Run `refs/init.md` end-to-end (it asks local vs. global scope, writes the pref file,
-and wires the `UserPromptSubmit` hook), then terminate. Do not run the self-check.
+Run `refs/init.md` end-to-end, then terminate. Do not run the self-check. It asks
+two questions — scope (local vs. global) and activation (hook vs. on-demand) —
+writes `pref.json`, wires or unwires the `UserPromptSubmit` hook to match, and
+installs the `CLAUDE.md` trust-anchor contract.
+
+This is the completion step for any install that delivered only the skill files
+(`npx skills add`, a manual copy, a dev checkout) — those set up none of the
+three.
+
+Shortcut flags skip the matching question: `--local` / `--global` for scope,
+`--hook` / `--on-demand` for activation. `--init` is also the *reconfiguration*
+path — re-running it with `--hook` or `--on-demand` toggles activation in place,
+preserving the existing `mode`.
 
 ## `--help`
 
@@ -50,8 +61,12 @@ ANSI styling survive, then terminate. The script prints
 ## `--set-mode`
 
 Explicit mode-management (e.g. `/wdym --set-mode --flash`). Read the target from the
-accompanying `--flash` or `--comprehensive` token, write `{"mode": "<target>"}` to
-the pref file resolved in Step 0, emit `Run mode set to <target>.`, and terminate.
+accompanying `--flash` or `--comprehensive` token, set `mode` to it in the pref file
+resolved in Step 0, emit `Run mode set to <target>.`, and terminate.
+
+**Update the `mode` key in place — never replace the file's whole contents.** The
+pref also carries `activation`; rewriting the file as `{"mode": "<target>"}` would
+silently drop it and revert the user to on-demand. Read, set one key, write back.
 
 If neither `--flash` nor `--comprehensive` accompanies `--set-mode`, emit the current
 `run_mode` and ask the user which mode to set, then terminate.

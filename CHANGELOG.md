@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-07-30
+
+### [9] — You choose whether wdym fires on every prompt or only when asked
+
+- `hooks/prompt-detect.py`: read the new `activation` preference before anything else and exit silently when it is `on-demand`, making the pref the single master switch; fix a `re.split` deprecation warning on Python 3.13
+- `refs/init.md`: `--init` now asks activation (hook vs. on-demand) as well as scope, wires or unwires the `UserPromptSubmit` hook to match, and installs the `CLAUDE.md` trust-anchor contract — the step that was previously only done by `install.sh`
+- `refs/heal.md`: hook-health checks apply only under `hook` activation, so a deliberately manual install is no longer reported as broken
+- `refs/protocol.md`, `refs/commands.md`: `--set-mode` and inline `--flash`/`--comprehensive` update `mode` in place instead of rewriting the pref file, which silently dropped `activation`
+- `install.sh`: added `--hook` / `--on-demand`; a stale `CLAUDE.md` contract is now replaced rather than skipped, the bug that let a repo and its install drift apart
+- `README.md`: `npx skills add ndisisnd/wdym` documented as a second install path, with the required `/wdym --init` follow-up and a comparison against the installer
+- `refs/manifest.json`: pref schema bumped to 3 — `mode` and `activation` both required
+- `tests/detect_bench.py`: dropped an assertion on the removed `ACTION:` marker that was failing all 22 cases
+
 ## 2026-07-23
 
 ### [8] — Local runtime artifacts stay out of version control
