@@ -4,9 +4,18 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-09
 
+### [13] — Docs describe two hosts, and the README shows the flow instead of describing it
+
+- `README.md`: `npx wdym-prompt` documented as the primary install path; `install.sh` demoted to Option 2 and labelled Claude-Code-only and frozen; `npx skills add` kept accurate as Option 3; new three-way comparison table with a Codex row; new Codex requirements note (hooks on by default, `/hooks` re-approval after every install or update, `<prompt-detect>` block currently visible per openai/codex#16933, global scope only, `$wdym` prefix); update section covers both installers plus `--doctor`; new Codex FAQ entry
+- `README.md`: the *How it works* Mermaid diagram now covers the whole path — both activation modes, the passthrough branch, the trust-contract step, and both run modes ending in a telemetry append — with a single divergence table underneath naming the four host-specific points (trust contract, skill path, hook file, ask step)
+- `ARCHITECTURE.md`: new *Two-host model* section — one canonical skill copy exposed to Codex by symlink with a recorded `codex_skill_mode` fallback, one canonical `pref.json` shared by both hosts, the ask-step abstraction chosen by tool availability, Codex's contents-based hook trust lifecycle, and why Codex is global-scope only
+- `ARCHITECTURE.md`: Step 6 in the flow diagram shows the ask step rather than a hard `AskUserQuestion` call; the trust-anchor note names both instruction files; file map adds `bin/wdym-prompt.js`, `agents/openai.yaml`, `package.json`, `refs/heal.md`, `tests/token_bench.py`
+- `llms.txt`: host-neutral summary, trust contract described per host, `refs/init.md` and `bin/wdym-prompt.js` added to the index
+- `RELEASES.md`: v1.2.0 entry
+
 ### [12] — One install command for either host: `npx wdym-prompt`
 
-- `bin/wdym-prompt.js`: new dependency-free Node installer — detects Claude Code and/or Codex, wires skill files, hook entry, trust-anchor contract, and the single canonical `pref.json`; Codex skill path is a symlink to the canonical copy with automatic copy fallback (`--copy` to force); dedupes pre-existing duplicate wdym hook entries by command text; byte-idempotent re-runs; `--doctor` reports wiring, copy drift, and hook trust; `--uninstall` unwinds marker-delimited blocks and hook entries; Codex-touching runs end with the loud hook re-approval trust notice
+- `bin/wdym-prompt.js`: new dependency-free Node installer — detects Claude Code and/or Codex, wires skill files, hook entry, trust-anchor contract, and the single canonical `pref.json`; Codex skill path is a symlink to the canonical copy with automatic copy fallback (`--copy` to force); dedupes pre-existing duplicate wdym hook entries by command text; byte-idempotent re-runs; `--doctor` reports wiring and copy drift, and flags Codex hook trust as unreadable with a pointer to `/hooks`; `--uninstall` unwinds marker-delimited blocks and hook entries; Codex-touching runs end with the loud hook re-approval trust notice
 - `bin/wdym-prompt.js`: hook dedupe matches on `prompt-detect.py` only (never a bare `wdym` substring), duplicate contract blocks are collapsed and fully removed on uninstall, and a settings file that parses to a non-object is refused rather than overwritten
 - `package.json`: new — `wdym-prompt` 1.2.0, `bin`, Node >= 18, zero runtime dependencies, `files` allowlist (no tests/, improve/, audit/), `prepublishOnly` gate on the detect bench
 - `.gitignore`: ignore `node_modules/` and `*.tgz` pack artifacts
