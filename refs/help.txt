@@ -1,10 +1,13 @@
-wdym — prompt rewriter for Claude Code
+wdym — prompt rewriter for Claude Code and Codex
 
 Applies structured rewrite principles to a prompt to make it sharper and better
 scoped, then submits the enhanced version. Detects prompt type (code, question,
 text-gen) and loads matching principles on top of the universal base. Runs either
 on every prompt (hook) or only when you ask for it (on-demand) — your choice at
 /wdym --init.
+
+Commands are written "/wdym" below. On Codex, type "$wdym" instead; everything
+after the prefix is identical.
 
 COMMANDS
 ────────────────────────────────────────────────────────────────────
@@ -17,8 +20,9 @@ COMMANDS
 
 INIT FLAGS  (skip the matching question)
 ────────────────────────────────────────────────────────────────────
-  --global                           Apply to all projects (~/.claude)
-  --local                            Apply to this directory only (./.claude)
+  --global                           Apply to all projects (user scope)
+  --local                            Apply to this directory only (Claude Code
+                                     only; Codex is global-scope only)
   --hook                             Fire automatically on every prompt
   --on-demand                        Fire only when invoked
 

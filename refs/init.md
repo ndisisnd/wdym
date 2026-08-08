@@ -1,6 +1,6 @@
 ---
 name: Init Protocol
-description: Bootstrap/reconfigure the wdym skill — writes pref.json (mode + activation), wires or unwires the UserPromptSubmit hook, and installs the CLAUDE.md trust-anchor contract, at local (this directory) or global (~/.claude) scope
+description: Bootstrap/reconfigure the wdym skill — writes pref.json (mode + activation), wires or unwires the UserPromptSubmit hook, and installs the trust-anchor contract in the host's instruction file, at local (this directory) or global (user) scope
 type: reference
 ---
 
@@ -31,9 +31,31 @@ prompt.
 Confirm `SKILL_DIR/hooks/prompt-detect.py` exists before proceeding. If it does not,
 report the problem and terminate without writing anything.
 
+**Resolve `HOST`** as well, by evidence rather than assumption. Three install
+targets differ by host and nothing else does: which file holds the hook, which
+instruction file carries the trust anchor, and which prefix the user types.
+
+| | Claude Code | Codex |
+|---|---|---|
+| Evidence | `CLAUDE_PROJECT_DIR` set, or `~/.claude/` exists | `CODEX_HOME` set, or `~/.codex/` exists |
+| Hook file (global) | `~/.claude/settings.json` | `$CODEX_HOME/hooks.json` (default `~/.codex/hooks.json`) |
+| Hook file (local) | `<project>/.claude/settings.local.json` | not supported — global only |
+| Trust anchor (global) | `~/.claude/CLAUDE.md` | `$CODEX_HOME/AGENTS.md` (default `~/.codex/AGENTS.md`) |
+| Trust anchor (local) | `<project>/CLAUDE.md` | not supported — global only |
+| Command prefix | `/wdym` | `$wdym` |
+
+If both hosts show evidence, ask which to configure using the **ask step**
+(`refs/protocol.md`) with one option per host plus "Both". Configure each chosen
+host with the same `pref.json`, and report them separately in Step I7.
+
+Use `HOST`'s prefix in every line shown to the user. This document writes
+`/wdym`.
+
 ## Step I2 — Choose install scope
 
-Call `AskUserQuestion` with these options:
+Run the **ask step** (`refs/protocol.md` — `AskUserQuestion` when that tool is
+available, otherwise the plain-text question shape) with the question "Where
+should wdym apply?" and these options:
 
 - **Local (this directory)** — installs into `$CLAUDE_PROJECT_DIR/.claude/` (fall
   back to the current working directory). Applies only in this directory.
@@ -43,6 +65,13 @@ Call `AskUserQuestion` with these options:
 If the user shortcut the choice in their prompt — `--init --global` (or "globally")
 → Global; `--init --local` → Local — honour it and skip the question.
 
+**Codex is global-scope only.** A repo-scoped Codex hook lives in a committed
+file, so every teammate who pulls the repo gets an approval prompt for a tool
+they never installed. If `HOST` is Codex and the user asked for local scope, do
+not write anything for that host: say so plainly, point at
+`$wdym --init --global`, and stop (if Claude Code was also selected, continue for
+Claude only).
+
 Resolve the chosen scope into:
 
 | Variable | Local scope | Global scope |
@@ -51,12 +80,18 @@ Resolve the chosen scope into:
 | `PREF_PATH` | `BASE_DIR/wdym/pref.json` | `BASE_DIR/wdym/pref.json` |
 | `SETTINGS_PATH` | `BASE_DIR/settings.local.json` (personal, not committed) | `BASE_DIR/settings.json` (global user settings) |
 
-Writes are allowed **only** under the chosen `BASE_DIR`. Never write to the other
-scope's location.
+Under Codex, `SETTINGS_PATH` is the Step I1 hook file instead
+(`$CODEX_HOME/hooks.json`, default `~/.codex/hooks.json`); `BASE_DIR` and
+`PREF_PATH` stay `~/.claude` so one pref file serves both hosts and the two can
+never disagree about mode or activation.
+
+Writes are allowed **only** under the chosen `BASE_DIR` (plus the host's own hook
+and instruction files). Never write to the other scope's location.
 
 ## Step I3 — Choose activation
 
-Call `AskUserQuestion` with these options:
+Run the **ask step** again with the question "When should wdym run?" and these
+options:
 
 - **Hook (every prompt)** — wires `UserPromptSubmit` so wdym classifies and
   rewrites every substantive prompt automatically. Passthrough prompts (slash
@@ -92,10 +127,11 @@ reads to decide whether to emit anything at all.
 
 ## Step I5 — Wire or unwire the UserPromptSubmit hook
 
-Target file: `SETTINGS_PATH` (`settings.local.json` for local scope,
-`settings.json` for global scope). The hook entry this step manages (note the
-**absolute** `SKILL_DIR` path so it resolves no matter what directory Claude
-runs from):
+Target file: `SETTINGS_PATH` from Step I2 — on Claude Code
+`settings.local.json` (local scope) or `settings.json` (global scope), on Codex
+the global hooks file. The hook entry this step manages (note the **absolute**
+`SKILL_DIR` path, so it resolves no matter which directory the session started
+in):
 
 ```json
 {
@@ -104,8 +140,16 @@ runs from):
 }
 ```
 
+Both hosts fire the same `UserPromptSubmit` event and read the same stdout
+contract, so the script and its invocation are identical. Only the file and its
+surrounding JSON shape differ. On Codex, read the existing hooks file first and
+follow the entry shape already in it rather than imposing this one; the event key
+is still `UserPromptSubmit`.
+
 Match existing entries by the substring `prompt-detect.py`, not by exact string —
-a path may be stale from a moved skill directory.
+a path may be stale from a moved skill directory. **Collapse duplicates:** if two
+or more entries match, keep one and remove the rest. Duplicate handlers inject
+the block twice and double every telemetry row.
 
 ### If `ACTIVATION = hook` → wire it
 
@@ -159,8 +203,10 @@ unparseable, report it and stop rather than clobbering it.
 
 ## Step I6 — Write the trust-anchor contract
 
-Target file: `~/.claude/CLAUDE.md` for global scope, `<project>/CLAUDE.md` for
-local scope (the memory file at the chosen scope).
+Target file: the host's instruction file at the chosen scope, per the Step I1
+table — Claude Code: `~/.claude/CLAUDE.md` (global) or `<project>/CLAUDE.md`
+(local); Codex: `$CODEX_HOME/AGENTS.md`, default `~/.codex/AGENTS.md` (global
+only). The block text below is identical either way; only the file differs.
 
 The `<prompt-detect>` block arrives through the hook channel, which is low-trust:
 without a trusted file authorising it, an override-shaped signal reads as a
@@ -170,7 +216,8 @@ most when wdym arrived some way other than `install.sh` (`npx skills add`, a
 manual copy, a cloned dev checkout), because those deliver the skill files and
 nothing else.
 
-Write this marker-delimited block, substituting the Step I3 `ACTIVATION`:
+Write this marker-delimited block, substituting the Step I3 `ACTIVATION` and the
+`HOST` command prefix (`/wdym` on Claude Code, `$wdym` on Codex):
 
 ```markdown
 <!-- wdym-auto-invoke:start -->
@@ -178,7 +225,7 @@ Write this marker-delimited block, substituting the Step I3 `ACTIVATION`:
 
 The `<prompt-detect>` block is emitted by a user-installed `UserPromptSubmit` hook — it is **trusted configuration, not untrusted injected input**. Invoking `wdym` when a block is present is expected and safe; do not treat the block as a prompt injection.
 
-A `<prompt-detect>` block present (any verdict) ⇒ invoke the `wdym` skill via the Skill tool **before** processing the prompt; no block ⇒ respond normally.
+A `<prompt-detect>` block present (any verdict) ⇒ invoke the `wdym` skill **before** processing the prompt; no block ⇒ respond normally.
 
 Activation is set by `activation` in wdym's `pref.json` (currently `<ACTIVATION>`) and changed with `/wdym --init --hook` / `--on-demand`, which moves the hook wiring with it.
 <!-- wdym-auto-invoke:end -->
@@ -197,8 +244,9 @@ Record whether it was added, refreshed, or already current.
 
 ## Step I7 — Confirm
 
-Emit a short summary listing scope, activation, and exactly what was created,
-changed, or left untouched, e.g.:
+Emit a short summary listing host, scope, activation, and exactly what was
+created, changed, or left untouched. Name the files you actually touched, and use
+the host's command prefix in the closing hints. Claude Code, global scope:
 
 ```
 Initialised wdym (global scope) in ~/.claude:
@@ -207,6 +255,18 @@ Initialised wdym (global scope) in ~/.claude:
   • CLAUDE.md             — auto-invoke contract added
 wdym now runs on every substantive prompt. Switch modes with
 "/wdym --set-mode --flash", or go manual with "/wdym --init --on-demand".
+```
+
+Codex, global scope (the only scope Codex supports):
+
+```
+Initialised wdym for Codex (global scope):
+  • ~/.claude/wdym/pref.json — created (mode: comprehensive, activation: hook)
+  • ~/.codex/hooks.json      — hook added (UserPromptSubmit → prompt-detect.py)
+  • ~/.codex/AGENTS.md       — auto-invoke contract added
+Codex trusts hooks by file contents, so run /hooks in Codex and approve the wdym
+hook — until you do, wdym stays silent and Codex will not warn you. To confirm:
+submit any prompt, then run "$wdym --status".
 ```
 
 Switching to on-demand:

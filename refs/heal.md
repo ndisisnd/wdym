@@ -32,11 +32,14 @@ one.
 
 - Block present with `verdict: degraded` → hook ran but its config is broken; go
   to Check 3.
-- **No block** (and `activation: hook`) → read the resolved settings file (local
-  `settings.local.json`, else global `settings.json`) for a
-  `hooks.UserPromptSubmit` entry whose command contains `prompt-detect.py`:
+- **No block** (and `activation: hook`) → read the host's resolved hook file
+  (`refs/init.md` Step I1 names it per host: Claude Code local
+  `settings.local.json` else global `settings.json`; Codex `~/.codex/hooks.json`)
+  for a `UserPromptSubmit` entry whose command contains `prompt-detect.py`:
   - Entry present **and** script path exists → wired but silent (e.g. `python3`
-    unavailable). Record `hook silent`; do not repair.
+    unavailable; on Codex, most often an unapproved hook — it trusts hooks by
+    file contents, so any reinstall revokes approval and it fails silently).
+    Record `hook silent`; do not repair. On Codex, hint `/hooks` to approve it.
   - Entry present **but** script path missing → stale path (skill dir moved).
     Rewrite the command to `python3 "<SKILL_DIR>/hooks/prompt-detect.py"` using
     the running skill's absolute root (merge rules: `refs/init.md` Step I5).

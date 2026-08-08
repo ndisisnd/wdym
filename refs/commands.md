@@ -10,6 +10,10 @@ Reached from `refs/protocol.md` Step 0 when the raw prompt carries a `/wdym`
 command flag. Each command executes and then **terminates** — never continue to
 Step 1, never enhance a prompt.
 
+**Command prefix:** `/wdym` on Claude Code, `$wdym` on Codex. Recognise either
+form on input; use the running host's form in anything shown to the user. This
+document writes `/wdym`.
+
 **Self-check ordering:** for `--help`, `--status`, and `--set-mode`, probe the
 install first (slash commands get no hook block, so the hook's probe didn't run):
 `ls` the five required files (`refs/categories.json`, `refs/categories.default.json`,
@@ -25,7 +29,11 @@ Dispatch on the first flag present, in this order:
 Run `refs/init.md` end-to-end, then terminate. Do not run the self-check. It asks
 two questions — scope (local vs. global) and activation (hook vs. on-demand) —
 writes `pref.json`, wires or unwires the `UserPromptSubmit` hook to match, and
-installs the `CLAUDE.md` trust-anchor contract.
+installs the trust-anchor contract in the host's instruction file (`CLAUDE.md` on
+Claude Code, `AGENTS.md` on Codex — `refs/init.md` resolves which).
+
+Both questions go through the **ask step** in `refs/protocol.md`, so they work on
+a host without an `AskUserQuestion` tool.
 
 This is the completion step for any install that delivered only the skill files
 (`npx skills add`, a manual copy, a dev checkout) — those set up none of the

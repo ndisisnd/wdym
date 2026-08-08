@@ -1,0 +1,13 @@
+# Codex skill metadata.
+#
+# Codex reads this file for the skills list and for whether the model may invoke
+# wdym on its own; Claude Code ignores it. Tool dependencies are deliberately not
+# declared: wdym uses only the host's built-in file-read, file-write and shell
+# capabilities, and asking the user is handled by the tool-availability check in
+# refs/protocol.md rather than by requiring a tool that Codex does not have.
+
+display_name: wdym
+short_description: Rewrite, improve, or enhance a prompt before it runs.
+
+policy:
+  allow_implicit_invocation: true

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-08-09
+
+### [11] — wdym runs correctly under Codex, not just accidentally
+
+- `hooks/prompt-detect.py`: emitted block's signal line is host-neutral ("invoke per the wdym auto-invoke contract" — no `CLAUDE.md`); state resolution walks cwd up to the repo root and consults `$CODEX_HOME`, so repo-local installs are found when the host starts in a subdirectory
+- `hooks/telemetry-stats.py`: mirrors the same resolution order so `--status` reads the file the hook writes
+- `tests/detect_bench.py`: asserts the new signal line, bans host filenames in the block, adds a subdirectory-launch scope test
+- `SKILL.md`: `allowed-tools:` frontmatter removed (not a Codex field); description rewritten with trigger words front-loaded to survive Codex's skills-list truncation; host-portability note added
+- `agents/openai.yaml`: new — Codex skill manifest with `display_name`, `short_description`, `policy.allow_implicit_invocation: true`
+- `refs/protocol.md`: comprehensive approval gate routed through a new "present options and stop" ask step — `AskUserQuestion` when available, plain-text question + end-of-turn otherwise, chosen by tool availability
+- `refs/init.md`: host-resolution table (hook file, trust anchor, command prefix per host), both `--init` questions via the ask step, Codex global-only rule, duplicate-hook collapse
+- `refs/commands.md`, `refs/help.txt`, `refs/heal.md`: host-neutral wording; heal knows the Codex untrusted-hook "wired but silent" failure mode
+
 ## 2026-07-30
 
 ### [10] — Principles catch up to modern models; writing prompts no longer read as code
