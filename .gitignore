@@ -3,3 +3,6 @@ audit/
 .claude/kermit/state.json
 .claude/.headroom_wrap_marker.json
 .tokensave
+improve/
+node_modules/
+*.tgz

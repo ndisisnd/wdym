@@ -4,6 +4,14 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-09
 
+### [12] — One install command for either host: `npx wdym-prompt`
+
+- `bin/wdym-prompt.js`: new dependency-free Node installer — detects Claude Code and/or Codex, wires skill files, hook entry, trust-anchor contract, and the single canonical `pref.json`; Codex skill path is a symlink to the canonical copy with automatic copy fallback (`--copy` to force); dedupes pre-existing duplicate wdym hook entries by command text; byte-idempotent re-runs; `--doctor` reports wiring, copy drift, and hook trust; `--uninstall` unwinds marker-delimited blocks and hook entries; Codex-touching runs end with the loud hook re-approval trust notice
+- `bin/wdym-prompt.js`: hook dedupe matches on `prompt-detect.py` only (never a bare `wdym` substring), duplicate contract blocks are collapsed and fully removed on uninstall, and a settings file that parses to a non-object is refused rather than overwritten
+- `package.json`: new — `wdym-prompt` 1.2.0, `bin`, Node >= 18, zero runtime dependencies, `files` allowlist (no tests/, improve/, audit/), `prepublishOnly` gate on the detect bench
+- `.gitignore`: ignore `node_modules/` and `*.tgz` pack artifacts
+- Codex install is global-scope only: `--codex --local` refuses cleanly and wires nothing; `install.sh` stays frozen as the Claude-only path
+
 ### [11] — wdym runs correctly under Codex, not just accidentally
 
 - `hooks/prompt-detect.py`: emitted block's signal line is host-neutral ("invoke per the wdym auto-invoke contract" — no `CLAUDE.md`); state resolution walks cwd up to the repo root and consults `$CODEX_HOME`, so repo-local installs are found when the host starts in a subdirectory
