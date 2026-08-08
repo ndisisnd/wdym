@@ -34,6 +34,8 @@ What's new for you, release by release.
   the other and the two cannot quietly drift apart.
 - Re-running an installer over an install that ended up with two wdym hooks now collapses
   them back to one, which stops the double rewrite and double usage counting that caused.
+- Both installers now write the exact same trust contract, so switching between
+  `npx wdym-prompt` and the shell installer no longer rewrites one line back and forth.
 
 ### 🐛 Fixed
 - Launching your agent inside a subfolder of a project no longer misses that project's
