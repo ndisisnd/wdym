@@ -1,0 +1,48 @@
+{
+  "name": "wdym-prompt",
+  "version": "1.2.0",
+  "description": "Install and wire wdym — the prompt rewriter that fires on every prompt — for Claude Code and Codex.",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "skill",
+    "prompt",
+    "prompt-engineering",
+    "userpromptsubmit",
+    "hook"
+  ],
+  "homepage": "https://github.com/ndisisnd/wdym#readme",
+  "bugs": {
+    "url": "https://github.com/ndisisnd/wdym/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ndisisnd/wdym.git"
+  },
+  "license": "MIT",
+  "author": "ndisisnd <ndisisnd@gmail.com>",
+  "type": "commonjs",
+  "bin": {
+    "wdym-prompt": "bin/wdym-prompt.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin/",
+    "hooks/",
+    "refs/",
+    "agents/",
+    "asset/",
+    "SKILL.md",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE.md",
+    "SECURITY.md",
+    "llms.txt"
+  ],
+  "scripts": {
+    "test": "python3 tests/detect_bench.py",
+    "prepublishOnly": "python3 tests/detect_bench.py"
+  }
+}

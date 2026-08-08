@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-08-09
+
+### [14] — Both installers write the same trust contract, and the live checks have a script
+
+- `install.sh`: contract line is now host-neutral ("invoke the `wdym` skill" — no "via the Skill tool"), byte-identical to what `bin/wdym-prompt.js` writes, so alternating installers no longer rewrite one line back and forth; verified in a sandbox that a stale block is refreshed in place and a re-run reports already-current
+- `CLAUDE.md`: dev repo's own contract updated to the same wording
+- `improve/v1.2-test.md`: new (untracked by design) — the live-verification test plan for everything static checks could not close: Codex session (gate, `--init`, one-block-one-row, symlink follow, trust-notice failure mode), Claude no-regression, real Node 18 run, diagram render and one-reader test, npm publish preflight
+
+### [13] — Docs describe two hosts, and the README shows the flow instead of describing it
+
+- `README.md`: `npx wdym-prompt` documented as the primary install path; `install.sh` demoted to Option 2 and labelled Claude-Code-only and frozen; `npx skills add` kept accurate as Option 3; new three-way comparison table with a Codex row; new Codex requirements note (hooks on by default, `/hooks` re-approval after every install or update, `<prompt-detect>` block currently visible per openai/codex#16933, global scope only, `$wdym` prefix); update section covers both installers plus `--doctor`; new Codex FAQ entry
+- `README.md`: the *How it works* Mermaid diagram now covers the whole path — both activation modes, the passthrough branch, the trust-contract step, and both run modes ending in a telemetry append — with a single divergence table underneath naming the four host-specific points (trust contract, skill path, hook file, ask step)
+- `ARCHITECTURE.md`: new *Two-host model* section — one canonical skill copy exposed to Codex by symlink with a recorded `codex_skill_mode` fallback, one canonical `pref.json` shared by both hosts, the ask-step abstraction chosen by tool availability, Codex's contents-based hook trust lifecycle, and why Codex is global-scope only
+- `ARCHITECTURE.md`: Step 6 in the flow diagram shows the ask step rather than a hard `AskUserQuestion` call; the trust-anchor note names both instruction files; file map adds `bin/wdym-prompt.js`, `agents/openai.yaml`, `package.json`, `refs/heal.md`, `tests/token_bench.py`
+- `llms.txt`: host-neutral summary, trust contract described per host, `refs/init.md` and `bin/wdym-prompt.js` added to the index
+- `RELEASES.md`: v1.2.0 entry
+
+### [12] — One install command for either host: `npx wdym-prompt`
+
+- `bin/wdym-prompt.js`: new dependency-free Node installer — detects Claude Code and/or Codex, wires skill files, hook entry, trust-anchor contract, and the single canonical `pref.json`; Codex skill path is a symlink to the canonical copy with automatic copy fallback (`--copy` to force); dedupes pre-existing duplicate wdym hook entries by command text; byte-idempotent re-runs; `--doctor` reports wiring and copy drift, and flags Codex hook trust as unreadable with a pointer to `/hooks`; `--uninstall` unwinds marker-delimited blocks and hook entries; Codex-touching runs end with the loud hook re-approval trust notice
+- `bin/wdym-prompt.js`: hook dedupe matches on `prompt-detect.py` only (never a bare `wdym` substring), duplicate contract blocks are collapsed and fully removed on uninstall, and a settings file that parses to a non-object is refused rather than overwritten
+- `package.json`: new — `wdym-prompt` 1.2.0, `bin`, Node >= 18, zero runtime dependencies, `files` allowlist (no tests/, improve/, audit/), `prepublishOnly` gate on the detect bench
+- `.gitignore`: ignore `node_modules/` and `*.tgz` pack artifacts
+- Codex install is global-scope only: `--codex --local` refuses cleanly and wires nothing; `install.sh` stays frozen as the Claude-only path
+
+### [11] — wdym runs correctly under Codex, not just accidentally
+
+- `hooks/prompt-detect.py`: emitted block's signal line is host-neutral ("invoke per the wdym auto-invoke contract" — no `CLAUDE.md`); state resolution walks cwd up to the repo root and consults `$CODEX_HOME`, so repo-local installs are found when the host starts in a subdirectory
+- `hooks/telemetry-stats.py`: mirrors the same resolution order so `--status` reads the file the hook writes
+- `tests/detect_bench.py`: asserts the new signal line, bans host filenames in the block, adds a subdirectory-launch scope test
+- `SKILL.md`: `allowed-tools:` frontmatter removed (not a Codex field); description rewritten with trigger words front-loaded to survive Codex's skills-list truncation; host-portability note added
+- `agents/openai.yaml`: new — Codex skill manifest with `display_name`, `short_description`, `policy.allow_implicit_invocation: true`
+- `refs/protocol.md`: comprehensive approval gate routed through a new "present options and stop" ask step — `AskUserQuestion` when available, plain-text question + end-of-turn otherwise, chosen by tool availability
+- `refs/init.md`: host-resolution table (hook file, trust anchor, command prefix per host), both `--init` questions via the ask step, Codex global-only rule, duplicate-hook collapse
+- `refs/commands.md`, `refs/help.txt`, `refs/heal.md`: host-neutral wording; heal knows the Codex untrusted-hook "wired but silent" failure mode
+
 ## 2026-07-30
 
 ### [10] — Principles catch up to modern models; writing prompts no longer read as code

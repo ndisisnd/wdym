@@ -15,7 +15,7 @@ User types a prompt and submits
 │    Score prompt against categories.json (keyword/regex)         │
 │    Emit minimal <prompt-detect> block: verdict (+ type on       │
 │      clear, + scores/candidates on ambiguous)                   │
-│    Block is a signal; CLAUDE.md → model invokes skill           │
+│    Block is a signal; host's trust contract → invoke skill      │
 │    Append src:"hook" line → telemetry.jsonl                     │
 └─────────────────────────────────────────────────────────────────┘
              │
@@ -56,8 +56,10 @@ User types a prompt and submits
 │          ▼                                                      │
 │  Step 6    [comprehensive mode only]                           │
 │          │ Show original → rationale → enhanced                 │
-│          │ AskUserQuestion (single gate):                       │
+│          │ Ask step — present options and stop:                 │
 │          │   Run enhanced | Run original | Edit                 │
+│          │   AskUserQuestion when that tool exists,             │
+│          │   otherwise plain text + end of turn                 │
 │          │                                                      │
 │          ├── cancel (via "Other") ────────────────────────────►│ (terminate + hint)
 │          │                                                      │
@@ -70,8 +72,11 @@ User types a prompt and submits
 └─────────────────────────────────────────────────────────────────┘
              │
              ▼
-    Enhanced prompt sent to Claude
+    Enhanced prompt sent to the model
 ```
+
+The flow above is host-independent. What differs between Claude Code and Codex is
+plumbing only — see [Two-host model](#two-host-model).
 
 ## File Map
 
@@ -79,18 +84,25 @@ User types a prompt and submits
 wdym/
 ├── SKILL.md                        Thin dispatcher → refs/protocol.md
 ├── pref.json                       Default mode template
-├── install.sh                      Installation helper
+├── package.json                    npm package `wdym-prompt` (bin, files allowlist)
+├── install.sh                      Shell installer — Claude Code only, frozen
+├── agents/
+│   └── openai.yaml                 Codex skill manifest (display name, invocation policy)
+├── bin/
+│   └── wdym-prompt.js              npx installer — both hosts, no dependencies
 ├── hooks/
 │   ├── prompt-detect.py            UserPromptSubmit pre-scorer
 │   └── telemetry-stats.py          --status report renderer
 ├── tests/
-│   └── detect_bench.py             Detection regression bench (expected verdicts)
+│   ├── detect_bench.py             Detection regression bench (expected verdicts)
+│   └── token_bench.py              Token-cost bench for the common path
 └── refs/
-    ├── protocol.md                 Step-by-step execution reference (Steps 0–8)
+    ├── protocol.md                 Step-by-step execution reference (Steps 0–8, ask step)
     ├── commands.md                 /wdym command handling (--init/--help/--status/--set-mode)
     ├── help.txt                    Verbatim --help text (printed via cat)
     ├── detect.md                   Manual type-detection path (ambiguous/absent only)
-    ├── init.md                     --init bootstrap protocol
+    ├── init.md                     --init bootstrap protocol (host resolution, scope, activation)
+    ├── heal.md                     Self-check repair playbook (Step 0.5 escalation)
     ├── manifest.json               Self-check & repair definitions (read only on a failed check)
     ├── categories.json             Type taxonomy (user-editable)
     ├── categories.default.json     Pristine restore copy
@@ -130,11 +142,66 @@ layer: append-only, best-effort, never healed, so it can never block or alter a 
 `additionalContext` channel — the same low-trust surface as tool output and retrieved
 text. An override-shaped imperative there (`ACTION: invoke … BEFORE processing`) reads as
 a prompt injection and was sometimes refused, silently skipping the skill. So the block
-carries only a neutral classification *signal*; the invoke instruction itself lives in
-`CLAUDE.md`, which the model treats as trusted user configuration. `install.sh` writes a
-marker-delimited, idempotent contract into `CLAUDE.md` at the install scope (global
-`~/.claude/CLAUDE.md`, local project root), so a fresh install carries the same authority
-the dev repo does rather than leaving the block to fend for itself.
+carries only a neutral classification *signal* — host-neutral wording, naming no host's
+files — while the invoke instruction lives in the host's own instruction file, which the
+model treats as trusted user configuration. Both installers write a marker-delimited,
+idempotent contract there at the install scope: `~/.claude/CLAUDE.md` or the local project
+root on Claude Code, `$CODEX_HOME/AGENTS.md` on Codex. A fresh install therefore carries
+the same authority the dev repo does rather than leaving the block to fend for itself.
+
+## Two-host model
+
+wdym runs on Claude Code and on Codex. The engine — hook scoring, classification,
+principle selection, rewriting, telemetry — is identical on both. Only the plumbing is
+host-specific, and it is enumerated in one place so the rest of the system never has to
+know which host it is on. Four of these matter at runtime — trust contract, skill path,
+hook file, and the ask step — and those are the four the README's diagram note names.
+
+| | Claude Code | Codex |
+|---|---|---|
+| Host evidence | `CLAUDE_PROJECT_DIR` set, or `~/.claude/` exists | `CODEX_HOME` set, or `~/.codex/` exists |
+| Skill path | `~/.claude/skills/wdym` (canonical), or `<project>/.claude/skills/wdym` | `~/.agents/skills/wdym` |
+| Hook file | `~/.claude/settings.json`, or `<project>/.claude/settings.local.json` | `$CODEX_HOME/hooks.json` |
+| Trust contract | `~/.claude/CLAUDE.md`, or `<project>/CLAUDE.md` | `$CODEX_HOME/AGENTS.md` |
+| Ask step | `AskUserQuestion` | plain-text options, end of turn |
+| Command prefix | `/wdym` | `$wdym` |
+| Scopes | global and local | global only |
+
+**One canonical copy, exposed twice.** The skill tree is installed once, under
+`~/.claude/skills/wdym`. Codex only scans `~/.agents/skills`, so the installer exposes the
+same tree there as a symlink rather than copying it. Two independent copies would drift the
+moment one host updated and the other didn't, and drift in a skill body is invisible until
+behaviour diverges. Where symlinks are unavailable (or `--copy` is passed) the installer
+copies instead and records which it did in `pref.json` as `codex_skill_mode`, so
+`--doctor` knows whether it needs to check the two paths for drift.
+
+**One pref file, both hosts.** `~/.claude/wdym/pref.json` is canonical for Claude Code and
+Codex alike, even though the rest of the Codex wiring lives under `~/.codex`. Splitting it
+would let a user set flash mode in one host and comprehensive in the other and then wonder
+which one they were talking to. Local scope still overrides global — but local scope is a
+Claude Code concept, so the override applies there only.
+
+**Ask step, not a tool call.** `AskUserQuestion` is a Claude Code tool and does not exist
+in Codex, and it was the one hard dependency that made the approval gate and `--init`
+unrunnable there. Both now route through a single documented interaction step — present
+options, stop, read the next message as the answer — with the implementation picked by
+*tool availability*, never by guessing the host. That way a host that gains or loses the
+tool needs no code change.
+
+**Trust lifecycle differs.** Claude Code approves a hook once. Codex trusts hooks by file
+contents, so any install, update, or re-run invalidates the previous approval and the hook
+goes silent until the user runs `/hooks` in Codex and approves it again — with no warning
+that it stopped firing. Codex also records approval outside any file this tool can read, so
+there is neither a programmatic approval path nor a readable trust state. Both are handled
+by documentation loudness instead: the installer prints an action-required notice last on
+every Codex-touching run, `--doctor` reports trust as `unknown` and points at `/hooks`,
+`refs/heal.md` knows the "wired but silent" failure mode, and the README repeats it in the
+Codex notes.
+
+**Codex is global-scope only.** A repo-scoped Codex hook would live in a committed file,
+so every teammate pulling the repo would get an approval prompt for a tool they never
+installed. Repo scope also collides with Codex sessions that start below the repo root.
+`--codex --local` therefore refuses cleanly and writes nothing rather than half-wiring.
 
 ## Run Modes
 

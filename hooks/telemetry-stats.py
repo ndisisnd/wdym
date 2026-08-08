@@ -26,6 +26,28 @@ WIDTH = 50  # rule / layout width
 TYPES = ("code", "question", "text-gen", "global")
 
 
+def cwd_walk_dirs():
+    """CWD and its ancestors, nearest first, stopping at the repo root — the
+    host-neutral way to find a repo-local install when the session started in a
+    subdirectory (only Claude Code sets CLAUDE_PROJECT_DIR). Mirrors
+    hooks/prompt-detect.py so --status reads the file the hook writes."""
+    dirs = []
+    try:
+        home = os.path.realpath(os.path.expanduser("~"))
+        cur = os.path.realpath(os.getcwd())
+    except Exception:
+        return dirs
+    for _ in range(40):
+        dirs.append(cur)
+        if os.path.exists(os.path.join(cur, ".git")):
+            break
+        parent = os.path.dirname(cur)
+        if parent == cur or cur == home:
+            break
+        cur = parent
+    return dirs
+
+
 def resolve():
     """Return (telemetry_path, scope_label) at the active install scope, or
     (None, None) if no wdym install dir exists."""
@@ -33,8 +55,15 @@ def resolve():
     candidates = []
     if proj:
         candidates.append((os.path.join(proj, ".claude", "wdym"), "local"))
-    candidates.append((os.path.join(os.getcwd(), ".claude", "wdym"), "local"))
-    candidates.append((os.path.expanduser("~/.claude/wdym"), "global"))
+    home_dir = os.path.expanduser("~/.claude/wdym")
+    for d in cwd_walk_dirs():
+        cand = os.path.join(d, ".claude", "wdym")
+        if cand != home_dir:  # the home dir is the global scope, reported below
+            candidates.append((cand, "local"))
+    candidates.append((home_dir, "global"))
+    codex_home = os.environ.get("CODEX_HOME")
+    if codex_home:
+        candidates.append((os.path.join(codex_home, "wdym"), "global"))
     for d, label in candidates:
         if os.path.isdir(d):
             return os.path.join(d, "telemetry.jsonl"), label

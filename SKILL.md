@@ -1,20 +1,27 @@
 ---
 name: wdym
 description: >
-  Prompt rewriter with two activation modes — hooked (fires on every prompt via a
-  UserPromptSubmit <prompt-detect> block) or on-demand (invoked via /wdym or when
-  asked to improve a prompt). Detects prompt type (code, question, text-gen) and
-  rewrites using 2–3 matched principles; flash mode runs immediately, comprehensive
-  gates for approval. Manage with /wdym --init, --status, --set-mode, --help.
-allowed-tools:
-  - AskUserQuestion
-  - Read
-  - Write
-  - Edit
-  - Bash
+  Rewrite, improve, or enhance a prompt. Runs on /wdym, on any request to
+  improve/enhance/rewrite a prompt, and on a UserPromptSubmit <prompt-detect>
+  block. Detects prompt type (code, question, text-gen) and rewrites using 2–3
+  matched principles; flash mode rewrites immediately, comprehensive mode
+  presents the rewrite and waits for approval. Manage with /wdym --init,
+  --status, --set-mode, --help.
 ---
 
 # wdym
+
+**Host portability.** wdym runs on any agent host with a `UserPromptSubmit`
+hook. Two things vary by host while the skill is running (a third set — where
+installed files land — is resolved by `refs/init.md`, and only during `--init`):
+
+- **Command prefix** — `/wdym` on Claude Code, `$wdym` on Codex. This skill
+  writes `/wdym` throughout; use the running host's prefix in anything shown to
+  the user.
+- **Asking the user** — the *ask step* in `refs/protocol.md`. Use the
+  `AskUserQuestion` tool when it is available, otherwise ask in plain text and
+  end the turn. Choose by whether that tool is available, never by guessing
+  which host you are on.
 
 **Activation** is set by `pref.json`'s `activation` key and chosen at
 `/wdym --init`:

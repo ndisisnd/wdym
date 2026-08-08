@@ -23,10 +23,10 @@ disagree. `--init` keeps them in sync by wiring/unwiring UserPromptSubmit.
 Passthrough prompts (slash command / <=5 words / conversational follow-up) get
 NO block at all — only a telemetry line. This makes the contract binary: block
 present => substantive prompt => invoke the wdym skill. The block is a neutral
-classification signal; the invoke instruction itself lives in CLAUDE.md (a
-trusted, user-installed contract), so an override-shaped imperative in the block
-can't be mistaken for a prompt injection and refused. Block absent => respond
-normally.
+classification signal; the invoke instruction itself lives in the host's own
+instruction file (CLAUDE.md on Claude Code, AGENTS.md on Codex) as a trusted,
+user-installed contract, so an override-shaped imperative in the block can't be
+mistaken for a prompt injection and refused. Block absent => respond normally.
 
 Token-efficiency duties absorbed from the skill (each deletes an LLM tool call,
 i.e. a full-context API round trip):
@@ -85,17 +85,66 @@ def is_passthrough(raw: str) -> bool:
     return False
 
 
-def telemetry_path():
-    """Resolve wdym/telemetry.jsonl at the active install scope: local
-    .claude/wdym/ overrides global ~/.claude/wdym/. Returns None if neither
-    install dir exists (the dir is created by --init, never by the hook)."""
-    candidates = []
+def _cwd_walk_dirs():
+    """The CWD and its ancestors, nearest first, stopping at the repo root.
+
+    Only Claude Code sets CLAUDE_PROJECT_DIR. Other hosts (Codex) may start the
+    session in a subdirectory of the repo, so a repo-local install one or more
+    levels up would be missed and the run would silently fall through to the
+    global scope. Walking up fixes that without naming a host: stop at the
+    directory holding `.git` (the repo root, itself included), and hard-stop at
+    $HOME or the filesystem root so an unrelated parent install is never picked
+    up. Depth is capped as a cheap guard against pathological trees."""
+    dirs = []
+    try:
+        home = os.path.realpath(os.path.expanduser("~"))
+        cur = os.path.realpath(os.getcwd())
+    except Exception:
+        return dirs
+    for _ in range(40):
+        dirs.append(cur)
+        if os.path.exists(os.path.join(cur, ".git")):
+            break
+        parent = os.path.dirname(cur)
+        if parent == cur or cur == home:
+            break
+        cur = parent
+    return dirs
+
+
+def state_dirs():
+    """wdym state directories in resolution order — nearest scope wins.
+
+    1. $CLAUDE_PROJECT_DIR/.claude/wdym — Claude Code's repo root, when set.
+    2. CWD and ancestors up to the repo root, each `.claude/wdym` — the
+       host-neutral way to find a repo-local install.
+    3. ~/.claude/wdym — the canonical global install, on either host.
+    4. $CODEX_HOME/wdym — Codex's config root, when it is set and non-default.
+
+    Order is deduplicated but otherwise preserved, so the same list backs both
+    the pref file and the telemetry file and the two can never disagree."""
+    dirs = []
     proj = os.environ.get("CLAUDE_PROJECT_DIR")
     if proj:
-        candidates.append(os.path.join(proj, ".claude", "wdym"))
-    candidates.append(os.path.join(os.getcwd(), ".claude", "wdym"))
-    candidates.append(os.path.expanduser("~/.claude/wdym"))
-    for d in candidates:
+        dirs.append(os.path.join(proj, ".claude", "wdym"))
+    for d in _cwd_walk_dirs():
+        dirs.append(os.path.join(d, ".claude", "wdym"))
+    dirs.append(os.path.expanduser("~/.claude/wdym"))
+    codex_home = os.environ.get("CODEX_HOME")
+    if codex_home:
+        dirs.append(os.path.join(codex_home, "wdym"))
+    ordered = []
+    for d in dirs:
+        if d not in ordered:
+            ordered.append(d)
+    return ordered
+
+
+def telemetry_path():
+    """Resolve wdym/telemetry.jsonl at the active install scope (state_dirs
+    order: nearest local scope wins, global last). Returns None if no install
+    dir exists (the dir is created by --init, never by the hook)."""
+    for d in state_dirs():
         if os.path.isdir(d):
             return os.path.join(d, "telemetry.jsonl")
     return None
@@ -114,14 +163,8 @@ def log_telemetry(record: dict) -> None:
 
 def pref_candidates():
     """Pref file paths in resolution order (same order as telemetry_path):
-    local scope overrides global."""
-    candidates = []
-    proj = os.environ.get("CLAUDE_PROJECT_DIR")
-    if proj:
-        candidates.append(os.path.join(proj, ".claude", "wdym", "pref.json"))
-    candidates.append(os.path.join(os.getcwd(), ".claude", "wdym", "pref.json"))
-    candidates.append(os.path.expanduser("~/.claude/wdym/pref.json"))
-    return candidates
+    the nearest local scope overrides global."""
+    return [os.path.join(d, "pref.json") for d in state_dirs()]
 
 
 def read_pref():
@@ -260,12 +303,18 @@ def is_forced(cat: dict, text: str) -> bool:
 
 
 # A neutral signal, not an imperative. The trusted invoke instruction lives in
-# CLAUDE.md (installed by init); the block only reports that a classification is
-# available. Override-shaped wording here ('ACTION: ... BEFORE processing this
-# prompt') read as a prompt injection through the low-trust hook channel and got
-# refused, silently skipping the skill — so the authority moved to CLAUDE.md.
+# the host's own instruction file (CLAUDE.md on Claude Code, AGENTS.md on Codex),
+# written by init; the block only reports that a classification is available.
+# Override-shaped wording here ('ACTION: ... BEFORE processing this prompt') read
+# as a prompt injection through the low-trust hook channel and got refused,
+# silently skipping the skill — so the authority moved to that file. The line
+# names the contract, not the file, because the filename is host-specific.
+#
+# Treat this string as user-facing copy: Codex currently renders additionalContext
+# as a visible developer message (openai/codex#16933), so the user reads it. One
+# tidy status line, no internal plumbing.
 ACTION_LINE = (
-    "signal: wdym classification available — invoke per the CLAUDE.md contract."
+    "signal: wdym classification available — invoke per the wdym auto-invoke contract."
 )
 
 

@@ -19,6 +19,12 @@ import tempfile
 
 HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks", "prompt-detect.py")
 
+# The block's closing line is user-facing copy on hosts that render
+# additionalContext (Codex, per openai/codex#16933) and must stay host-neutral —
+# no host-specific filename may reappear in it. Asserted on every emitted block.
+SIGNAL_LINE = "signal: wdym classification available — invoke per the wdym auto-invoke contract."
+BANNED_IN_BLOCK = ("CLAUDE.md", "AGENTS.md")
+
 # (label, prompt, expected_verdict, expected_type_or_None)
 # expected_verdict: "clear" | "global" | "ambiguous" | "suppressed" (no block)
 CASES = [
@@ -80,7 +86,45 @@ def run_case(prompt: str, env) -> dict:
     # degraded blocks carry verdict in the tag attribute
     if "verdict" not in parsed and 'verdict="degraded"' in ctx:
         parsed["verdict"] = "degraded"
+    parsed["_ctx"] = ctx
     return parsed
+
+
+def check_repo_local_resolution() -> list:
+    """Launched from a subdirectory, the hook must still find the repo-local
+    install rather than falling through to global.
+
+    Only Claude Code sets CLAUDE_PROJECT_DIR; Codex can start anywhere under the
+    repo. This runs the hook from a nested subdirectory with that variable unset
+    and HOME pointed at an empty throwaway, so the only way to reach the pref is
+    the walk up to the repo root."""
+    failures = []
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = os.path.join(tmp, "repo")
+        sub = os.path.join(repo, "packages", "api", "src")
+        wdym_dir = os.path.join(repo, ".claude", "wdym")
+        os.makedirs(sub)
+        os.makedirs(wdym_dir)
+        os.makedirs(os.path.join(repo, ".git"))
+        with open(os.path.join(wdym_dir, "pref.json"), "w") as f:
+            json.dump({"mode": "flash", "activation": "hook"}, f)
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
+        env["HOME"] = os.path.join(tmp, "home")
+        os.makedirs(env["HOME"])
+        out = subprocess.run(
+            ["python3", os.path.abspath(HOOK)],
+            input=json.dumps({"prompt": "fix the login bug in the auth flow"}),
+            capture_output=True, text=True, env=env, cwd=sub,
+        ).stdout.strip()
+        if not out:
+            failures.append("repo-local: no block emitted from a subdirectory")
+            return failures
+        ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        if "run_mode: flash" not in ctx:
+            failures.append("repo-local: subdirectory run did not resolve the repo-local pref")
+        if not os.path.isfile(os.path.join(wdym_dir, "telemetry.jsonl")):
+            failures.append("repo-local: telemetry did not land in the repo-local wdym dir")
+    return failures
 
 
 def main() -> int:
@@ -113,9 +157,24 @@ def main() -> int:
             if want_v is None and v not in ("clear", "global", "ambiguous"):
                 ok = False
                 failures.append(f"{label}: unexpected verdict {v!r}")
+            ctx = r.get("_ctx", "")
+            if ctx:
+                if SIGNAL_LINE not in ctx:
+                    ok = False
+                    failures.append(f"{label}: block is missing the exact signal line")
+                for banned in BANNED_IN_BLOCK:
+                    if banned in ctx:
+                        ok = False
+                        failures.append(
+                            f"{label}: block names {banned} — the emitted block must stay host-neutral"
+                        )
             print(f"{label:<14} {v:<11} {t:<10} {'✓' if ok else '✗':<4} {r.get('scores', '')}")
         print(f"\ndeterministic (clear/global): {deterministic}/{scored} scored prompts"
               f" ({100 * deterministic // scored if scored else 0}%)")
+        scope_failures = check_repo_local_resolution()
+        failures.extend(scope_failures)
+        print(f"repo-local scope resolution from a subdirectory: "
+              f"{'✓' if not scope_failures else '✗'}")
         if failures:
             print("\nFAILURES:")
             for f in failures:

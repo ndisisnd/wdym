@@ -10,6 +10,40 @@ Emit no step markers. Visible output is limited to the Step 0.5 repair line (onl
 when something was healed/escalated) and the Step 6 enhanced-prompt block
 (comprehensive mode only — the rewritten prompt, no original, no rationale).
 
+## Ask step — present options and stop
+
+wdym asks the user a question in exactly two places: the Step 6 approval gate and
+`refs/init.md`'s scope and activation questions. Both use this one step, so the
+question reads the same whichever host is running.
+
+**Pick the implementation by tool availability, never by guessing the host.**
+Check your own available tools for `AskUserQuestion`:
+
+- **Available** → call it once with the options as given. Unchanged behaviour.
+- **Not available** (Codex, and any host without it) → emit the options as plain
+  text in the shape below, then **end the turn**. Do not choose an option
+  yourself, do not act on any option, and do not continue past the step. Read the
+  user's next message as the answer.
+
+Plain-text shape — a one-line question, the options numbered in the order given
+with a short consequence each, and one closing line:
+
+```
+<question>
+
+1. <Option label> — <what it does>
+2. <Option label> — <what it does>
+3. <Option label> — <what it does>
+
+Reply with a number or the label.
+```
+
+Reading the reply: a number, an option label, or an unambiguous paraphrase of one
+selects that option. Anything else — a different instruction, a question back, a
+refusal — counts as the "Other" branch that the calling step defines (Step 6
+treats it as cancel). Never guess between two options; if the reply genuinely
+fits neither, ask once more with the same shape.
+
 ## Step 0 — Resolve run mode
 
 **Command flags first:** if the raw prompt carries a `/wdym` flag — `--init`,
@@ -20,11 +54,20 @@ Otherwise resolve `run_mode` (`comprehensive` · `flash`):
 
 1. **From the hook block** — a `run_mode:` line in `<prompt-detect>` is the
    pref already resolved; adopt it. No file read.
-2. **Fallback** (no block or no `run_mode:` line) — read the pref file: local
-   `$CLAUDE_PROJECT_DIR/.claude/wdym/pref.json`, else `~/.claude/wdym/pref.json`
-   (local overrides global; all pref writes target that resolved path). Missing
-   or unparseable at both scopes → `comprehensive` (do **not** create the file;
-   only `--init` does).
+2. **Fallback** (no block or no `run_mode:` line) — read the first
+   `wdym/pref.json` that exists, in the same order the hook uses (nearest scope
+   wins; all pref writes target that resolved path):
+
+   1. `$CLAUDE_PROJECT_DIR/.claude/wdym/pref.json` — when the host sets that
+      variable (Claude Code does; Codex does not).
+   2. `.claude/wdym/pref.json` in the current directory, then in each parent up
+      to the repo root — this is what finds a repo-local install when the
+      session started in a subdirectory.
+   3. `~/.claude/wdym/pref.json` — the canonical global install on either host.
+   4. `$CODEX_HOME/wdym/pref.json` — only when `CODEX_HOME` is set.
+
+   Missing or unparseable at every scope → `comprehensive` (do **not** create the
+   file; only `--init` does).
 
 The same pref carries `activation` (`hook` · `on-demand`) — *when* the skill
 fires, as opposed to `mode`'s *how it behaves once it does*. It needs no
@@ -119,7 +162,8 @@ selected principles and rationale stay internal.
 **Flash:** skip — go to Step 7 with `chosen_prompt = enhanced_prompt`.
 
 **Comprehensive:** display `enhanced_prompt` in a blockquote alone (no label, no
-original, no rationale), then call `AskUserQuestion` once:
+original, no rationale), then run the **ask step** (above) once with the question
+"Run this prompt?" and these options:
 
 | Option | `chosen_prompt` | `outcome` |
 |--------|-----------------|-----------|
@@ -127,8 +171,13 @@ original, no rationale), then call `AskUserQuestion` once:
 | Run original prompt | `raw_prompt` | `run_original` |
 | Edit enhanced prompt | the edited prompt | `edited` |
 
-Cancel via "Other" → `outcome = terminated`; emit the hint below and skip to
-Step 8 without running anything.
+On the text-fallback path the whole turn is the blockquote followed by the
+question block — nothing else, and nothing runs until the user replies.
+
+Cancel — "Other" on the tool path, any reply matching no option on the text path
+— → `outcome = terminated`; emit the hint below and skip to Step 8 without
+running anything. A reply that supplies replacement wording is *Edit enhanced
+prompt*, not a cancel.
 
 ```
 Want to automatically transform your prompts without approval? Set to flash mode instead by running "/wdym --set-mode --flash"

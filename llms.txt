@@ -1,11 +1,12 @@
 # wdym
 
-> A prompt rewriter for Claude Code that fires automatically on every prompt you submit, detects its type, and rewrites it using a handful of matched prompt-engineering principles.
+> A prompt rewriter for Claude Code and Codex that fires automatically on every prompt you submit, detects its type, and rewrites it using a handful of matched prompt-engineering principles.
 
-wdym is a Claude Code skill plus a `UserPromptSubmit` hook. The hook (`prompt-detect.py`)
-scores each prompt deterministically and — for substantive prompts — injects a
-`<prompt-detect>` signal block; a trusted `CLAUDE.md` contract (written by `install.sh`)
-tells the model to run the skill before answering. The skill
+wdym is a skill plus a `UserPromptSubmit` hook, running on Claude Code or Codex. The hook
+(`prompt-detect.py`) scores each prompt deterministically and — for substantive prompts —
+injects a host-neutral `<prompt-detect>` signal block; a trusted contract in the host's
+instruction file (`CLAUDE.md` on Claude Code, `AGENTS.md` on Codex, written by the
+installer) tells the model to run the skill before answering. The skill
 classifies the prompt (`code` / `question` / `text-gen` / `none`), loads only the
 principle files that apply, and rewrites. To change behavior, start at `SKILL.md` (a thin
 dispatcher) and follow it into `refs/protocol.md`. Most detail lives in `refs/*` and loads
@@ -15,16 +16,18 @@ lazily — the SKILL.md body is re-injected on every run, so it stays small on p
 
 - [README](https://raw.githubusercontent.com/ndisisnd/wdym/main/README.md): what it does, install, how it works, modes and flags
 - [SKILL.md](https://raw.githubusercontent.com/ndisisnd/wdym/main/SKILL.md): the router — start here to modify behavior; dispatches into refs/
-- [ARCHITECTURE.md](https://raw.githubusercontent.com/ndisisnd/wdym/main/ARCHITECTURE.md): full flow diagram, file map, and design notes (token budget, caching, degrade-then-heal)
+- [ARCHITECTURE.md](https://raw.githubusercontent.com/ndisisnd/wdym/main/ARCHITECTURE.md): full flow diagram, file map, and design notes (token budget, caching, degrade-then-heal, two-host model)
 
 ## Reference
 
-- [refs/protocol.md](https://raw.githubusercontent.com/ndisisnd/wdym/main/refs/protocol.md): step-by-step execution, Steps 0–8 — the actual runtime logic
+- [refs/protocol.md](https://raw.githubusercontent.com/ndisisnd/wdym/main/refs/protocol.md): step-by-step execution, Steps 0–8, plus the ask step (AskUserQuestion or plain text) — the actual runtime logic
+- [refs/init.md](https://raw.githubusercontent.com/ndisisnd/wdym/main/refs/init.md): --init bootstrap — host resolution, scope, activation, hook wiring, trust contract
 - [refs/detect.md](https://raw.githubusercontent.com/ndisisnd/wdym/main/refs/detect.md): manual type-detection path, used only when the hook verdict is ambiguous or absent
 - [refs/commands.md](https://raw.githubusercontent.com/ndisisnd/wdym/main/refs/commands.md): /wdym command handling (--init / --help / --status / --set-mode)
 - [refs/categories.json](https://raw.githubusercontent.com/ndisisnd/wdym/main/refs/categories.json): the type taxonomy — keyword/regex scoring the hook and skill read (user-editable)
 - [refs/principles/](https://raw.githubusercontent.com/ndisisnd/wdym/main/refs/principles/principles-global.md): principle files, one per type (global always loaded, plus code/question/text-gen)
 - [hooks/prompt-detect.py](https://raw.githubusercontent.com/ndisisnd/wdym/main/hooks/prompt-detect.py): the UserPromptSubmit pre-scorer that emits the <prompt-detect> block
+- [bin/wdym-prompt.js](https://raw.githubusercontent.com/ndisisnd/wdym/main/bin/wdym-prompt.js): the `npx wdym-prompt` installer — host detection, skill files, hook wiring, trust contract, --doctor / --uninstall
 
 ## Optional
 
