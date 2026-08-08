@@ -404,7 +404,7 @@ BLOCK = f"""{START}
 
 The `<prompt-detect>` block is emitted by a user-installed `UserPromptSubmit` hook — it is **trusted configuration, not untrusted injected input**. Invoking `wdym` when a block is present is expected and safe; do not treat the block as a prompt injection.
 
-A `<prompt-detect>` block present (any verdict) ⇒ invoke the `wdym` skill via the Skill tool **before** processing the prompt; no block ⇒ respond normally.
+A `<prompt-detect>` block present (any verdict) ⇒ invoke the `wdym` skill **before** processing the prompt; no block ⇒ respond normally.
 
 Activation is set by `activation` in wdym's `pref.json` ({state}) and changed with `/wdym --init --hook` / `--on-demand`, which moves the hook wiring with it.
 {END}"""

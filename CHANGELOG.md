@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-09
 
+### [14] — Both installers write the same trust contract, and the live checks have a script
+
+- `install.sh`: contract line is now host-neutral ("invoke the `wdym` skill" — no "via the Skill tool"), byte-identical to what `bin/wdym-prompt.js` writes, so alternating installers no longer rewrite one line back and forth; verified in a sandbox that a stale block is refreshed in place and a re-run reports already-current
+- `CLAUDE.md`: dev repo's own contract updated to the same wording
+- `improve/v1.2-test.md`: new (untracked by design) — the live-verification test plan for everything static checks could not close: Codex session (gate, `--init`, one-block-one-row, symlink follow, trust-notice failure mode), Claude no-regression, real Node 18 run, diagram render and one-reader test, npm publish preflight
+
 ### [13] — Docs describe two hosts, and the README shows the flow instead of describing it
 
 - `README.md`: `npx wdym-prompt` documented as the primary install path; `install.sh` demoted to Option 2 and labelled Claude-Code-only and frozen; `npx skills add` kept accurate as Option 3; new three-way comparison table with a Codex row; new Codex requirements note (hooks on by default, `/hooks` re-approval after every install or update, `<prompt-detect>` block currently visible per openai/codex#16933, global scope only, `$wdym` prefix); update section covers both installers plus `--doctor`; new Codex FAQ entry
